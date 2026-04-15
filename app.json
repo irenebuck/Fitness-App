@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Let's Go!",
+    "slug": "lets-go-fitness",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#4A90D9"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.cs467.letsgofitness"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#4A90D9"
+      },
+      "package": "com.cs467.letsgofitness"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Let's Go! to access your photos for challenge images.",
+          "cameraPermission": "Allow Let's Go! to use your camera for challenge photos."
+        }
+      ]
+    ]
+  }
+}
