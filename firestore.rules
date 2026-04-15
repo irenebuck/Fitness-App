@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users: readable by authenticated users, writable only by owner
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Challenges: readable by all authenticated users
+    // Writable by creator or participants (for check-ins)
+    match /challenges/{challengeId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null &&
+        resource.data.creatorId == request.auth.uid;
+    }
+
+    // Messages: readable by authenticated users, writable by author
+    match /messages/{messageId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null &&
+        (resource.data.userId == request.auth.uid ||
+         // Allow adding replies
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replies']));
+      allow delete: if request.auth != null &&
+        resource.data.userId == request.auth.uid;
+    }
+  }
+}
