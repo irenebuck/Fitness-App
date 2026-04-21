@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+// useFocusEffect rerenders every time you return to Home Screen for most current version of challenges, etc.
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { collection, doc, getDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase/config';
 import ChallengeCard from '../components/ChallengeCard';
@@ -23,13 +24,15 @@ import { COLORS, SPACING, SIZES, RADIUS, SHADOW } from '../theme';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
+  // useAuth is a custom-built hook in AuthContext.js
+  // It pulls from Firebase the auth'd user, the user's profile/details, and a function to refresh the profile
   const { user, userProfile, refreshUserProfile } = useAuth();
-
   const [activeChallenges, setActiveChallenges] = useState([]);
   const [completedChallenges, setCompletedChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // This causes a refresh whenever a user returns to the Home Screen AND something in userProfile changes
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -37,43 +40,62 @@ export default function HomeScreen() {
   );
 
   async function loadData() {
+    // If the userProfile hasn't loaded from Firebase yet, stop
     if (!userProfile) return;
     try {
+      // || [] means if the field doesn't exist, use an empty array instead of crashing. 
       const joined = userProfile.joinedChallenges || [];
       const completed = userProfile.completedChallenges || [];
+      // Filters out completed challenges IDs from all challenge IDs the user is in.
       const activeIds = joined.filter((id) => !completed.includes(id));
 
+      // Fetches active and completed challenges simultaneously using the IDs
       const [activeData, completedData] = await Promise.all([
         fetchChallenges(activeIds),
         fetchChallenges(completed),
       ]);
-
+      // Updates variables. If something changed, this update triggers re-rendering
       setActiveChallenges(activeData);
       setCompletedChallenges(completedData);
     } catch (err) {
       console.error('Error loading home data:', err);
     } finally {
+      // Turns off loading spinners
       setLoading(false);
       setRefreshing(false);
     }
   }
 
   async function fetchChallenges(ids) {
+    // Takes an array of challenge IDs and returns an array of challenge objects
     if (!ids || ids.length === 0) return [];
     const results = [];
-    for (const id of ids.slice(0, 20)) {
+    // Gets a complete list of challenge Ids and reverses them from newest to oldest
+    const mostRecentIds = [...ids].reverse()
+    // Takes the first/newest 10 challenges, no need to make Firestore request for more than 10
+    for (const id of mostRecentIds.slice(0, 10)) {
+      // snapshot of the challenge document from Firestore
       const snap = await getDoc(doc(db, 'challenges', id));
+      // if document found, create object with all field data and add it to results array
       if (snap.exists()) results.push({ id: snap.id, ...snap.data() });
     }
     return results;
   }
 
+  // Called when a user pulls the screen down
+  // Spinner animation activates, fetches Firestore profile, and reloads data
   async function onRefresh() {
     setRefreshing(true);
-    await refreshUserProfile();
-    await loadData();
+    try {
+      await refreshUserProfile();
+      await loadData();
+    } catch (err) {
+      console.error('Refresh failed:', err);
+      setRefreshing(false)
+    }
   }
 
+  // Friend only appears if there is an issue reading the profile from Firebase
   const displayName = userProfile?.displayName || user?.displayName || 'Friend';
   const badges = userProfile?.badges || [];
 
@@ -157,6 +179,7 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               </View>
             ) : (
+              // Sideways-scrolling list of challenge card
               <FlatList
                 data={activeChallenges}
                 keyExtractor={(item) => item.id}
