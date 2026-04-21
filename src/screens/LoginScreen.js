@@ -1,18 +1,22 @@
 import React, { useState } from 'react';
 import {
+  // <div> equivalent
   View,
   Text,
   TextInput,
+  // <button> equivalent
   TouchableOpacity,
   StyleSheet,
+  // Popup on top of existing screen
   Modal,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   Alert,
+  // Circular spinning animation
   ActivityIndicator,
-  Image,
 } from 'react-native';
+// Pads content so iPhone additional bars/notches don't hide content
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { COLORS, SPACING, SIZES, RADIUS, SHADOW } from '../theme';
@@ -21,11 +25,14 @@ export default function LoginScreen() {
   const { login, signup, resetPassword } = useAuth();
 
   // Login state
+  // Stores the email the user enters in the starting blank '' email field
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // Tracks if login request is in progress, spinner displayed when true/in progress
   const [loginLoading, setLoginLoading] = useState(false);
 
   // Signup modal state
+  // Signup modal/popup stays hidden when false
   const [showSignup, setShowSignup] = useState(false);
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
@@ -39,10 +46,12 @@ export default function LoginScreen() {
   const [forgotLoading, setForgotLoading] = useState(false);
 
   async function handleLogin() {
+    // if either field (less/trimmed spaces) is blank, return error
     if (!email.trim() || !password.trim()) {
       Alert.alert('Error', 'Please enter your email and password.');
       return;
     }
+    // else show spinner while waiting for login approval
     setLoginLoading(true);
     try {
       await login(email.trim(), password);
@@ -53,6 +62,7 @@ export default function LoginScreen() {
     }
   }
 
+  // Called when user clicks Create Account on Login Screen
   async function handleSignup() {
     if (!signupName.trim() || !signupEmail.trim() || !signupPassword || !signupConfirm) {
       Alert.alert('Error', 'Please fill in all fields.');
@@ -85,7 +95,7 @@ export default function LoginScreen() {
     setForgotLoading(true);
     try {
       await resetPassword(forgotEmail.trim());
-      Alert.alert('Email Sent', 'Check your inbox for password reset instructions.');
+      Alert.alert('Email Sent', 'If an account exists for that email, you will receive reset instructions.');
       setShowForgot(false);
       setForgotEmail('');
     } catch (err) {
@@ -142,7 +152,9 @@ export default function LoginScreen() {
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
+              // Shows the @ key on the keyboard of the user's phone
               keyboardType="email-address"
+              // Turns off autocorrect for the email field
               autoCorrect={false}
               returnKeyType="next"
             />
@@ -154,7 +166,9 @@ export default function LoginScreen() {
               placeholderTextColor={COLORS.textSecondary}
               value={password}
               onChangeText={setPassword}
+              // Makes each character entered appear as a dot
               secureTextEntry
+              // Changes the return key on the user's keypad to show Done instead
               returnKeyType="done"
               onSubmitEditing={handleLogin}
             />
@@ -162,8 +176,10 @@ export default function LoginScreen() {
             <TouchableOpacity
               style={[styles.primaryButton, loginLoading && styles.buttonDisabled]}
               onPress={handleLogin}
+              // Prevents double-tapping while in progress of logging in
               disabled={loginLoading}
             >
+              {/* When login in progress, changes button for spinner */}
               {loginLoading ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (
@@ -183,7 +199,7 @@ export default function LoginScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Sign Up Modal */}
+      {/* Sign Up Modal - this is the popup window for Create Account */}
       <Modal visible={showSignup} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -243,6 +259,7 @@ export default function LoginScreen() {
               <TouchableOpacity
                 style={styles.cancelButton}
                 onPress={() => {
+                  // Hides the modal/popup(false) and clears data fields if opened again
                   setShowSignup(false);
                   setSignupName('');
                   setSignupEmail('');
@@ -263,7 +280,7 @@ export default function LoginScreen() {
           <View style={[styles.modalCard, styles.modalCardSmall]}>
             <Text style={styles.modalTitle}>Reset Password</Text>
             <Text style={styles.modalSubtitle}>
-              Enter your email and we'll send you instructions to reset your password.
+              Enter your email and we will send you instructions to reset your password.
             </Text>
             <Text style={styles.label}>Email</Text>
             <TextInput
@@ -303,7 +320,10 @@ export default function LoginScreen() {
   );
 }
 
+// Each key is a style name referenced with styles.keyName
+// COLORS, SPACING, SIZES, RADIUS, SHADOW are defined in theme.js and imported at top of file
 const styles = StyleSheet.create({
+  // flex 1 takes up all available space and makes the background screen blue 
   safe: {
     flex: 1,
     backgroundColor: COLORS.primary,
@@ -321,13 +341,16 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xxl,
   },
   logoCircle: {
+    // Square
     width: 100,
     height: 100,
+    // with rounded the corners
     borderRadius: 50,
     backgroundColor: COLORS.white,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.md,
+    // ... is the spread operator, applies all 5 characteristics in SHADOW.medium
     ...SHADOW.medium,
   },
   logoEmoji: {
