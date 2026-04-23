@@ -33,9 +33,10 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useRoute } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { db, storage } from '../firebase/config';
-import ChatMessage from '../components/ChatMessage';
+import ChatMessage from '../components/ChatMessage'; // Deadcode legacy
 import BadgeIcon from '../components/BadgeIcon';
 import { COLORS, SPACING, SIZES, RADIUS, SHADOW } from '../theme';
+import SimpleChat from '../components/SimpleChat';
 
 export default function ActiveChallengeScreen() {
   const route = useRoute();
