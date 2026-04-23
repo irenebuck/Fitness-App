@@ -74,7 +74,7 @@ export default function ChallengeDetailScreen() {
       Alert.alert(
         "You're In! 🎉",
         `Welcome to "${challenge.title}". Good luck!`,
-        [{ text: 'Let's Go!', onPress: () => navigation.navigate('ActiveChallenge', { challengeId }) }]
+        [{ text: "Let's Go!", onPress: () => navigation.navigate('ActiveChallenge', { challengeId }) }]
       );
     } catch (err) {
       console.error('Join error:', err);
