@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Image,
   ActivityIndicator,
+  Platform,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +17,9 @@ import {
   updateDoc,
   arrayUnion,
   increment,
+  arrayRemove,
+  deleteField,
+  writeBatch
 } from 'firebase/firestore';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -27,19 +31,25 @@ export default function ChallengeDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { challengeId } = route.params;
-  const { user, userProfile, updateUserProfile } = useAuth();
+  const { user, userProfile, updateUserProfile, refreshUserProfile } = useAuth();
 
   const [challenge, setChallenge] = useState(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
 
-  const alreadyJoined = userProfile?.joinedChallenges?.includes(challengeId);
+  const alreadyJoined = Object.values(userProfile?.joinedChallenges ?? {}).includes(challengeId);
 
   useEffect(() => {
     loadChallenge();
   }, [challengeId]);
 
   async function loadChallenge() {
+    /*
+      Loads a single challenge document to this page for display. Grabs challenge detaisl from Firestore with
+      the challenge ID. Throws error display if challenge not found.
+
+      @returns {void} - does not return a value, func finishes once loading has been cleared
+    */
     try {
       const snap = await getDoc(doc(db, 'challenges', challengeId));
       if (snap.exists()) {
@@ -53,6 +63,12 @@ export default function ChallengeDetailScreen() {
   }
 
   async function handleJoin() {
+    /*
+      Addresses the "Join Challenge" button. Ends if user already joined, otherwise it updates
+      backend firestore and UI for joined challenges of this user  
+
+      @returns {void} - does not return a value, func finishes after both writes (awaits) are complete
+    */
     if (alreadyJoined) {
       navigation.navigate('ActiveChallenge', { challengeId });
       return;
@@ -71,10 +87,12 @@ export default function ChallengeDetailScreen() {
         joinedChallenges: arrayUnion(challengeId),
       });
 
+      await refreshUserProfile();
+
       Alert.alert(
         "You're In! 🎉",
         `Welcome to "${challenge.title}". Good luck!`,
-        [{ text: 'Let's Go!', onPress: () => navigation.navigate('ActiveChallenge', { challengeId }) }]
+        [{ text: 'Let\'s Go!', onPress: () => navigation.navigate('ActiveChallenge', { challengeId }) }]
       );
     } catch (err) {
       console.error('Join error:', err);
@@ -83,6 +101,70 @@ export default function ChallengeDetailScreen() {
       setJoining(false);
     }
   }
+
+
+async function handleLeave() {
+  /*
+  Handles leaving the challenge for the user once they click the associated button. Provides a warning prior.
+  Calls doLeave to do the actual logic to leave
+  */
+  const leaveTitle = 'Leave Challenge?';
+  const leaveMessage = 'Are you sure you want to leave? All progress will be lost';
+
+  // if user is using web
+  if (Platform.OS === 'web') {
+    if (window.confirm(`${leaveTitle}\n\n${leaveMessage}`)) {
+      doLeave();
+    }
+  } else {
+    Alert.alert(leaveTitle, leaveMessage, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Leave', style: 'destructive', onPress: doLeave },
+    ]);
+  }
+}
+
+async function doLeave() {
+  /*
+  Removes from challenge and updates the challenge's participant list
+  */
+  setJoining(true);
+  try {
+    const batch = writeBatch(db);
+    const challengeRef = doc(db, 'challenges', challengeId);
+    const userRef = doc(db, 'users', user.uid);
+
+    // updates the backend challege data removing user and decrementing
+    batch.update(challengeRef, {
+      participants: arrayRemove(user.uid),
+      participantCount: increment(-1),
+      [`checkIns.${user.uid}`]: deleteField(),
+    });
+    
+    // removes the challengeID from user's data
+    batch.update(userRef, {
+      joinedChallenges: arrayRemove(challengeId),
+    });
+    
+    // sends all updates to Firestore simultaneuouly  
+    await batch.commit();
+    await refreshUserProfile?.();
+    navigation.goBack();
+
+  } catch (err) {
+
+    // different errors based on if user is using web vs phone
+    if (Platform.OS === 'web') {
+      window.alert('Could not leave the challenge. Please try again.');
+    } else {
+      Alert.alert('Error', 'Could not leave the challenge. Please try again.');
+    }
+  } finally {
+    setJoining(false);
+  }
+}
+
+
 
   if (loading) {
     return (
@@ -147,6 +229,13 @@ export default function ChallengeDetailScreen() {
           )}
         </TouchableOpacity>
 
+        {/* Leave Button CURRENTLY IN PROGRESS WILL ADD FORMAT LATER*/}
+        {alreadyJoined && (
+          <TouchableOpacity style={styles.leaveBtn} onPress={handleLeave} disabled={joining}>
+            <Ionicons name="exit-outline" size={18} color={COLORS.red} />
+            <Text style={styles.leaveBtnText}>Leave Challenge</Text>
+          </TouchableOpacity>
+        )}
         {/* Dates */}
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
@@ -408,4 +497,22 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
   },
+  leaveBtn: { // copied from joinBtn
+    backgroundColor: COLORS.red, //'transparent',
+    borderWidth: 1.5,
+    borderColor: COLORS.red,
+    borderRadius: RADIUS.sm,
+    padding: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+    marginTop: -SPACING.sm, // tightens the gap to the button above
+  },
+leaveBtnText: {
+  color: COLORS.white,
+  fontSize: SIZES.medium,
+  fontWeight: '600',
+},
 });

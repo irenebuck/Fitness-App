@@ -46,10 +46,16 @@ export default function DiscoveryScreen() {
   }, []);
 
   async function loadChallenges(tag = '') {
+    /*
+      Gets list of active challenges from the Firebase DB and stores in challenges variable
+
+      @param {string} tag='' - optional variable. Represents a search-by tag to fitler out challenges
+      @returns {void} - does not return a value, func finishes executing once state is resolved
+    */
     setLoading(true);
     try {
       let q;
-      if (tag.trim()) {
+      if (tag.trim()) {  // if contains tag, trim the string and search
         q = query(
           collection(db, 'challenges'),
           where('isPublic', '==', true),
@@ -58,7 +64,7 @@ export default function DiscoveryScreen() {
           orderBy('participantCount', 'desc'),
           limit(50)
         );
-      } else {
+      } else {  // fetch all challenges
         q = query(
           collection(db, 'challenges'),
           where('isPublic', '==', true),
@@ -68,7 +74,7 @@ export default function DiscoveryScreen() {
         );
       }
       const snap = await getDocs(q);
-      setChallenges(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setChallenges(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); // save in, snap.docs = array of matching docs
     } catch (err) {
       console.error('Discovery load error:', err);
     } finally {
@@ -78,6 +84,13 @@ export default function DiscoveryScreen() {
   }
 
   async function toggleFavorite(challengeId) {
+    /*
+      Sets the challenge as a "favorite" in user's favorite list. Updates both backend and UI real-time.
+
+      @param {string} challengeId - ID in Firestore for that specific challenge. ID is 
+        from the challenge from loadChallenges(). In Flatlist, this is item.id.
+      @returns {void} - does not return a value, func finishes once Firestore finshes the two Awaits
+    */
     const isFav = favorites.includes(challengeId);
     const updated = isFav
       ? favorites.filter((id) => id !== challengeId)
