@@ -31,13 +31,13 @@ export default function ChallengeDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { challengeId } = route.params;
-  const { user, userProfile, updateUserProfile, refreshUserProfile} = useAuth();
+  const { user, userProfile, updateUserProfile, refreshUserProfile } = useAuth();
 
   const [challenge, setChallenge] = useState(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
 
-  const alreadyJoined = userProfile?.joinedChallenges?.includes(challengeId);
+  const alreadyJoined = Object.values(userProfile?.joinedChallenges ?? {}).includes(challengeId);
 
   useEffect(() => {
     loadChallenge();
@@ -86,6 +86,8 @@ export default function ChallengeDetailScreen() {
       await updateUserProfile({
         joinedChallenges: arrayUnion(challengeId),
       });
+
+      await refreshUserProfile();
 
       Alert.alert(
         "You're In! 🎉",
@@ -229,8 +231,9 @@ async function doLeave() {
 
         {/* Leave Button CURRENTLY IN PROGRESS WILL ADD FORMAT LATER*/}
         {alreadyJoined && (
-          <TouchableOpacity onPress={handleLeave} disabled={joining}>
-            <Text>Leave Challenge</Text>
+          <TouchableOpacity style={styles.leaveBtn} onPress={handleLeave} disabled={joining}>
+            <Ionicons name="exit-outline" size={18} color={COLORS.red} />
+            <Text style={styles.leaveBtnText}>Leave Challenge</Text>
           </TouchableOpacity>
         )}
         {/* Dates */}
@@ -494,4 +497,22 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
   },
+  leaveBtn: { // copied from joinBtn
+    backgroundColor: COLORS.red, //'transparent',
+    borderWidth: 1.5,
+    borderColor: COLORS.red,
+    borderRadius: RADIUS.sm,
+    padding: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+    marginTop: -SPACING.sm, // tightens the gap to the button above
+  },
+leaveBtnText: {
+  color: COLORS.white,
+  fontSize: SIZES.medium,
+  fontWeight: '600',
+},
 });
