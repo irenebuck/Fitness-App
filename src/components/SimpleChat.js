@@ -9,7 +9,10 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  Alert
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker'
 import { Ionicons } from '@expo/vector-icons';
 import {
   collection,
@@ -19,7 +22,8 @@ import {
   addDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import {ref, uploadBytes, getDownloadURL} from 'firebase/storage';
+import { db, storage } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 import { COLORS, SPACING, SIZES, RADIUS } from '../theme';
 
@@ -28,7 +32,7 @@ import { COLORS, SPACING, SIZES, RADIUS } from '../theme';
  *
  * Scope (v1):
  *   - Text + user only. No image attachments, no threaded replies.
- *   - Real-time via Firestore onSnapshot.
+ *   - Real time via Firestore onSnapshot.
  *   - Scoped to a single challengeId (passed in as a prop).
  *
  * Forward compatibility:
@@ -43,6 +47,7 @@ export default function SimpleChat({ challengeId }) {
   const { user, userProfile } = useAuth();
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
+  const [imageUri, setImageUri] = useState(null);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const listRef = useRef(null);
@@ -84,21 +89,46 @@ export default function SimpleChat({ challengeId }) {
     return unsub;
   }, [challengeId]);
 
+
+  async function handlePickImage() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets?.[0]){
+      setImageUri(result.assets[0].uri);
+    }
+  }
   async function handleSend() {
     const trimmed = text.trim();
-    if (!trimmed || sending) return;
+    if (!trimmed && !imageUri || sending) return;
     setSending(true);
     try {
+      let imageURL = null;
+      if (imageUri){
+        const blob = await fetch(imageUri).then(r =>r.blob());
+        const storageRef = ref(storage, `messages/${user.uid}_${Date.now()}.jpg`);
+        await uploadBytes(storageRef, blob);
+        imageURL = await getDownloadURL(storageRef);
+      }
       await addDoc(collection(db, 'messages'), {
         challengeId,
         userId: user.uid,
         userDisplayName: userProfile?.displayName || user.displayName || 'User',
         text: trimmed,
+        imageURL,
         timestamp: serverTimestamp(),
       });
       setText('');
+      setImageUri(null);
     } catch (err) {
       console.error('SimpleChat send error:', err);
+      Alert.alert(
+        'Message Failed',
+        'There is an error sending your message. Please try again or contact system admin.',
+        [{ text: 'OK'}]
+      );
     } finally {
       setSending(false);
     }
@@ -112,6 +142,9 @@ export default function SimpleChat({ challengeId }) {
           <Text style={styles.author}>{item.userDisplayName || 'User'}</Text>
         )}
         <View style={[styles.bubble, isOwn ? styles.bubbleOwn : styles.bubbleOther]}>
+          {item.imageURL && (
+            <Image source= {{uri: item.imageURL}} style={styles.messageImage} resizeMode='cover'/>
+          )}
           <Text style={[styles.bubbleText, isOwn && styles.bubbleTextOwn]}>
             {item.text}
           </Text>
@@ -151,6 +184,9 @@ export default function SimpleChat({ challengeId }) {
       />
 
       <View style={styles.inputRow}>
+        <TouchableOpacity onPress={handlePickImage}>
+          <Ionicons name="image-outline" size={24} color={COLORS.textSecondary} /> 
+        </TouchableOpacity>
         <TextInput
           style={styles.input}
           value={text}
@@ -163,10 +199,10 @@ export default function SimpleChat({ challengeId }) {
         <TouchableOpacity
           style={[
             styles.sendBtn,
-            (!text.trim() || sending) && styles.sendBtnDisabled,
+            (!text.trim() && !imageUri || sending) && styles.sendBtnDisabled,
           ]}
           onPress={handleSend}
-          disabled={!text.trim() || sending}
+          disabled={!text.trim() && !imageUri || sending}
         >
           <Ionicons name="send" size={20} color={COLORS.white} />
         </TouchableOpacity>
@@ -236,5 +272,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendBtnDisabled: { opacity: 0.5 },
+  sendBtnDisabled: { opacity: 0.5
+  },
+  messageImage: {
+    width: 200,
+    height: 150,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.xs,
+  },
+  previewContainer: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+    marginLeft: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  previewImage: {
+    width: 80,
+    height: 80,
+    borderRadius: RADIUS.md,
+  },
+  previewRemove: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+  },
 });
+
+  
