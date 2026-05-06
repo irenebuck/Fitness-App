@@ -33,9 +33,10 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useRoute } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { db, storage } from '../firebase/config';
-import ChatMessage from '../components/ChatMessage';
+import ChatMessage from '../components/ChatMessage'; // Deadcode legacy
 import BadgeIcon from '../components/BadgeIcon';
 import { COLORS, SPACING, SIZES, RADIUS, SHADOW } from '../theme';
+import SimpleChat from '../components/SimpleChat';
 
 export default function ActiveChallengeScreen() {
   const route = useRoute();
@@ -60,8 +61,12 @@ export default function ActiveChallengeScreen() {
 
   useEffect(() => {
     loadChallenge();
-    const unsubscribe = subscribeToMessages();
-    return unsubscribe;
+    // ── DEAD_CODE #3 (legacy chat subscription) ──────────────────────
+    // removed for simplicity, kept in comments for potential path forward
+    // SimpleChat subscribes to Firestore internally now.
+    // const unsubscribe = subscribeToMessages();
+    // return unsubscribe;
+    // ── END DEAD_CODE #3 ─────────────────────────────────────────────
   }, [challengeId]);
 
   async function loadChallenge() {
@@ -156,78 +161,83 @@ export default function ActiveChallengeScreen() {
     }
   }
 
-  async function pickPostImage() {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setPostImageUri(result.assets[0].uri);
-    }
-  }
-
-  async function handlePost() {
-    if (!postText.trim() && !postImageUri) {
-      Alert.alert('Error', 'Please add a message or photo.');
-      return;
-    }
-    setPosting(true);
-    try {
-      let imageURL = null;
-      if (postImageUri) {
-        const response = await fetch(postImageUri);
-        const blob = await response.blob();
-        const filename = `messages/${user.uid}_${Date.now()}.jpg`;
-        const storageRef = ref(storage, filename);
-        await uploadBytes(storageRef, blob);
-        imageURL = await getDownloadURL(storageRef);
-      }
-
-      if (replyTarget) {
-        // Add reply to existing message
-        const msgRef = doc(db, 'messages', replyTarget.id);
-        const msgSnap = await getDoc(msgRef);
-        if (msgSnap.exists()) {
-          const replies = msgSnap.data().replies || [];
-          await updateDoc(msgRef, {
-            replies: [
-              ...replies,
-              {
-                id: Date.now().toString(),
-                userId: user.uid,
-                userDisplayName: userProfile?.displayName || user.displayName,
-                userPhotoURL: userProfile?.photoURL || null,
-                text: postText.trim(),
-                timestamp: new Date().toISOString(),
-              },
-            ],
-          });
-        }
-      } else {
-        await addDoc(collection(db, 'messages'), {
-          challengeId,
-          userId: user.uid,
-          userDisplayName: userProfile?.displayName || user.displayName,
-          userPhotoURL: userProfile?.photoURL || null,
-          text: postText.trim(),
-          imageURL,
-          timestamp: serverTimestamp(),
-          replies: [],
-        });
-      }
-
-      setPostText('');
-      setPostImageUri(null);
-      setReplyTarget(null);
-      setShowPostModal(false);
-    } catch (err) {
-      console.error('Post error:', err);
-      Alert.alert('Error', 'Could not post message. Please try again.');
-    } finally {
-      setPosting(false);
-    }
-  }
+  // ── DEAD_CODE #5 (legacy image picker + post/reply handler) ────────
+  // Replaced by SimpleChat.handleSend() which is text-only, code left commented pending path forward
+  // When rich chat returns, port these back as additive features.
+  //
+  // async function pickPostImage() {
+  //   const result = await ImagePicker.launchImageLibraryAsync({
+  //     mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  //     allowsEditing: true,
+  //     quality: 0.7,
+  //   });
+  //   if (!result.canceled && result.assets[0]) {
+  //     setPostImageUri(result.assets[0].uri);
+  //   }
+  // }
+  //
+  // async function handlePost() {
+  //   if (!postText.trim() && !postImageUri) {
+  //     Alert.alert('Error', 'Please add a message or photo.');
+  //     return;
+  //   }
+  //   setPosting(true);
+  //   try {
+  //     let imageURL = null;
+  //     if (postImageUri) {
+  //       const response = await fetch(postImageUri);
+  //       const blob = await response.blob();
+  //       const filename = `messages/${user.uid}_${Date.now()}.jpg`;
+  //       const storageRef = ref(storage, filename);
+  //       await uploadBytes(storageRef, blob);
+  //       imageURL = await getDownloadURL(storageRef);
+  //     }
+  //
+  //     if (replyTarget) {
+  //       // Add reply to existing message
+  //       const msgRef = doc(db, 'messages', replyTarget.id);
+  //       const msgSnap = await getDoc(msgRef);
+  //       if (msgSnap.exists()) {
+  //         const replies = msgSnap.data().replies || [];
+  //         await updateDoc(msgRef, {
+  //           replies: [
+  //             ...replies,
+  //             {
+  //               id: Date.now().toString(),
+  //               userId: user.uid,
+  //               userDisplayName: userProfile?.displayName || user.displayName,
+  //               userPhotoURL: userProfile?.photoURL || null,
+  //               text: postText.trim(),
+  //               timestamp: new Date().toISOString(),
+  //             },
+  //           ],
+  //         });
+  //       }
+  //     } else {
+  //       await addDoc(collection(db, 'messages'), {
+  //         challengeId,
+  //         userId: user.uid,
+  //         userDisplayName: userProfile?.displayName || user.displayName,
+  //         userPhotoURL: userProfile?.photoURL || null,
+  //         text: postText.trim(),
+  //         imageURL,
+  //         timestamp: serverTimestamp(),
+  //         replies: [],
+  //       });
+  //     }
+  //
+  //     setPostText('');
+  //     setPostImageUri(null);
+  //     setReplyTarget(null);
+  //     setShowPostModal(false);
+  //   } catch (err) {
+  //     console.error('Post error:', err);
+  //     Alert.alert('Error', 'Could not post message. Please try again.');
+  //   } finally {
+  //     setPosting(false);
+  //   }
+  // }
+  // ── END DEAD_CODE #5 ───────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -345,7 +355,17 @@ export default function ActiveChallengeScreen() {
               </View>
             )}
 
-            {/* Chat */}
+            {/* Chat — simplified flat chat (Progress Report #1) */}
+            <View style={styles.chatSection}>
+              <Text style={styles.sectionTitle}>Challenge Chat</Text>
+              <View style={styles.chatWrap}>
+                <SimpleChat challengeId={challengeId} />
+              </View>
+            </View>
+
+            {/* ── DEAD_CODE #6 (legacy chat render block) ───────────── */}
+            {/* Kept for reference; delete after SimpleChat is approved. */}
+            {/*
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Challenge Chat</Text>
               {messages.length === 0 ? (
@@ -365,21 +385,29 @@ export default function ActiveChallengeScreen() {
                 ))
               )}
             </View>
+            */}
+            {/* ── END DEAD_CODE #6 ──────────────────────────────────── */}
 
             <View style={{ height: 80 }} />
           </View>
         </ScrollView>
 
-        {/* Floating Post Button */}
+        {/* ── DEAD_CODE #7 (legacy FAB) ─────────────────────────────── */}
+        {/* SimpleChat uses an inline input row, so no FAB is needed.   */}
+        {/*
         <TouchableOpacity
           style={styles.fab}
           onPress={() => { setReplyTarget(null); setShowPostModal(true); }}
         >
           <Ionicons name="add" size={30} color={COLORS.white} />
         </TouchableOpacity>
+        */}
+        {/* ── END DEAD_CODE #7 ──────────────────────────────────────── */}
       </KeyboardAvoidingView>
 
-      {/* Post Modal */}
+      {/* ── DEAD_CODE #8 (legacy post modal) ────────────────────────── */}
+      {/* Replaced by SimpleChat's inline TextInput + send button.      */}
+      {/*
       <Modal visible={showPostModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.postModal}>
@@ -446,6 +474,8 @@ export default function ActiveChallengeScreen() {
           </View>
         </View>
       </Modal>
+      */}
+      {/* ── END DEAD_CODE #8 ────────────────────────────────────────── */}
     </View>
   );
 }
