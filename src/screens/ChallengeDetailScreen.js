@@ -1,3 +1,4 @@
+// Displays challenge details so the user can decide whether to join.
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -25,6 +26,7 @@ import { COLORS, SPACING, SIZES, RADIUS, SHADOW } from '../theme';
 
 export default function ChallengeDetailScreen() {
   const navigation = useNavigation();
+  // useRoute gives access to whatever was passed when navigating to this screen.
   const route = useRoute();
   const { challengeId } = route.params;
   const { user, userProfile, updateUserProfile } = useAuth();
@@ -35,6 +37,7 @@ export default function ChallengeDetailScreen() {
 
   const alreadyJoined = userProfile?.joinedChallenges?.includes(challengeId);
 
+  // Runs loadChallenge when the screen mounts, and reruns if challengeId changes.
   useEffect(() => {
     loadChallenge();
   }, [challengeId]);
@@ -53,6 +56,7 @@ export default function ChallengeDetailScreen() {
   }
 
   async function handleJoin() {
+    // If already joined — skip everything and just navigate directly to the active challenge screen. The rest of the function doesn't run.
     if (alreadyJoined) {
       navigation.navigate('ActiveChallenge', { challengeId });
       return;
@@ -61,12 +65,14 @@ export default function ChallengeDetailScreen() {
     setJoining(true);
     try {
       const challengeRef = doc(db, 'challenges', challengeId);
+      // Update the challenge doc with 3 changes in one call
       await updateDoc(challengeRef, {
         participants: arrayUnion(user.uid),
         participantCount: increment(1),
         [`checkIns.${user.uid}`]: 0,
       });
 
+      // Adds the challenge ID to the user's joinedChallenges array
       await updateUserProfile({
         joinedChallenges: arrayUnion(challengeId),
       });
@@ -74,7 +80,7 @@ export default function ChallengeDetailScreen() {
       Alert.alert(
         "You're In! 🎉",
         `Welcome to "${challenge.title}". Good luck!`,
-        [{ text: 'Let's Go!', onPress: () => navigation.navigate('ActiveChallenge', { challengeId }) }]
+        [{ text: 'Let\'s Go!', onPress: () => navigation.navigate('ActiveChallenge', { challengeId }) }]
       );
     } catch (err) {
       console.error('Join error:', err);
@@ -127,6 +133,7 @@ export default function ChallengeDetailScreen() {
       <View style={styles.content}>
         {/* Join Button */}
         <TouchableOpacity
+          // Overrides the background color to green if already joined.
           style={[styles.joinBtn, alreadyJoined && styles.joinedBtn, joining && { opacity: 0.6 }]}
           onPress={handleJoin}
           disabled={joining}

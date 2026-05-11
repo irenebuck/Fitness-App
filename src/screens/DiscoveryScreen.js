@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  // Enables pull-to-refresh on a scrollable list
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,11 +16,13 @@ import {
   query,
   where,
   orderBy,
+  // Caps how many documents a query returns
   limit,
   getDocs,
   doc,
   updateDoc,
   arrayUnion,
+  // Opposite of arrayUnion, removes a specific value without touching the rest of array
   arrayRemove,
   getDoc,
 } from 'firebase/firestore';
@@ -33,6 +36,10 @@ export default function DiscoveryScreen() {
   const navigation = useNavigation();
   const { user, userProfile, updateUserProfile, refreshUserProfile } = useAuth();
 
+  // Syntax - const [value, setValue] = useState(startingValue)
+  // value - what you read to know what is in the field
+  // setValue - the function you call to set/change the value
+  // startingValue - what field contains when screen first opens
   const [searchTag, setSearchTag] = useState('');
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +48,7 @@ export default function DiscoveryScreen() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   useEffect(() => {
+    // Runs once on mount. || [] handles users who have no favorites field yet.
     setFavorites(userProfile?.favorites || []);
     loadChallenges();
   }, []);
@@ -50,24 +58,33 @@ export default function DiscoveryScreen() {
     try {
       let q;
       if (tag.trim()) {
+        // Firestore db query with a tag
         q = query(
           collection(db, 'challenges'),
           where('isPublic', '==', true),
           where('status', '==', 'active'),
           where('tags', 'array-contains', tag.trim().toLowerCase()),
+          // Challenges with most members are listed first
           orderBy('participantCount', 'desc'),
+          // Fetches no more than 50 challenges
           limit(50)
         );
       } else {
+        // Firestore db query without a tag
         q = query(
           collection(db, 'challenges'),
           where('isPublic', '==', true),
           where('status', '==', 'active'),
-          orderBy('participantCount', 'desc'),
+          orderBy('participantCount', 'desc'), 
           limit(50)
         );
       }
+      // Snapshot of point-in-time doc matches bundled in an object
       const snap = await getDocs(q);
+      // Opens the snap object and gives the fields, adding docID as an extra field,
+      //     and saving the array into state.
+      // docID lives outside the document, so adding ID is extra needed step.
+      // Now challenges is a JavaScript array the components can read and render.
       setChallenges(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (err) {
       console.error('Discovery load error:', err);
@@ -77,13 +94,20 @@ export default function DiscoveryScreen() {
     }
   }
 
+  // Adds or removes a challenge from the favorites list when the star is clicked in local state
   async function toggleFavorite(challengeId) {
+    // favorites is the local state array of challenge IDs user has starred.
+    // Checks is the challenge passed to this function is already a favorite.
     const isFav = favorites.includes(challengeId);
+    // If already a fav and clicked, remove from favs. Otherwide, add to faves.
     const updated = isFav
       ? favorites.filter((id) => id !== challengeId)
       : [...favorites, challengeId];
+    // Saves the new array into local state immediately — before any database 
+    // call. This is why the star icon responds the instant you tap it, with no delay.
     setFavorites(updated);
 
+    // Updates the database based on local state for the toggleFavorites
     try {
       await updateUserProfile({
         favorites: isFav ? arrayRemove(challengeId) : arrayUnion(challengeId),
@@ -107,11 +131,13 @@ export default function DiscoveryScreen() {
     loadChallenges(searchTag);
   }
 
+  // If the favorites filter is on, only show faves else show every challenge.
   const displayedChallenges = showFavoritesOnly
     ? challenges.filter((c) => favorites.includes(c.id))
     : challenges;
 
-  // Put favorites at top
+  // Put favorites at top regardless of filtering.
+  // No db call needed, just rearranges what is already in memory/local state. 
   const sorted = [
     ...displayedChallenges.filter((c) => favorites.includes(c.id)),
     ...displayedChallenges.filter((c) => !favorites.includes(c.id)),
@@ -184,8 +210,12 @@ export default function DiscoveryScreen() {
           )}
         </View>
       ) : (
+        // Only renders items currently visible on the screen, loading more as you scroll.
+        // It improves performance.
         <FlatList
+          // array to render
           data={sorted}
+          // Tells Flatlist to use item.id for mapping, the challenge ID.
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <ChallengeCard
@@ -197,6 +227,7 @@ export default function DiscoveryScreen() {
           )}
           contentContainerStyle={styles.list}
           refreshControl={
+            // refreshControl — attaches pull-to-refresh behavior. When the user pulls down, setRefreshing(true) and loadChallenges are called, fetching fresh data
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => { setRefreshing(true); loadChallenges(searchTag); }}

@@ -114,7 +114,23 @@ setSavingName(false);
       setConfirmPassword('');
       Alert.alert('Success', 'Password changed successfully.');
     } catch (err) {
-      Alert.alert('Error', 'Could not change password. You may need to log in again first.');
+        if (err.code === 'auth/requires-recent-login') {
+          // forces logout because user needs recent login to allow for password change
+          Alert.alert(
+            'For your security, please login again to change your password.',
+            [
+              {
+                text: 'Log In Again',
+                onPress: async () => {
+                  setShowPasswordModal(false);
+                  await logout();
+                }
+              }
+            ]
+          );
+        } else {
+          Alert.alert('Error', 'Could not change password.');
+  }
     } finally {
       setPasswordLoading(false);
     }

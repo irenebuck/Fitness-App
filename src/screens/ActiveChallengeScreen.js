@@ -1,3 +1,6 @@
+// This is the main screen a user sees while participating in a challenge 
+//    - checkins, goal tracking, and live chat.
+
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -24,9 +27,11 @@ import {
   query,
   where,
   orderBy,
+  // onSnapshot — a Firestore listener that watches a query in real time. Unlike getDocs which fetches once, onSnapshot fires every time the data changes. This is what makes the chat live
   onSnapshot,
   addDoc,
   increment,
+  // Tells Firestore to stamp the document with the server's current time when it's written, rather than the device's time. 
   serverTimestamp,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -359,7 +364,6 @@ export default function ActiveChallengeScreen() {
                   <ChatMessage
                     key={msg.id}
                     message={msg}
-                    currentUserId={user.uid}
                     onReply={(m) => { setReplyTarget(m); setShowPostModal(true); }}
                   />
                 ))

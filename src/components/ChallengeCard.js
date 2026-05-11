@@ -1,18 +1,36 @@
+// This file doesn't communicate with Firebase or navigate. 
+// It displays and calls the function the parent passes in.
+// Called in HomeScreen and DiscoveryScreen
+
 import React from 'react';
+// TouchableOpacity allows the card to be tappable
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+// Used for star, people, and chevron icons
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, SIZES, RADIUS, SHADOW } from '../theme';
 
+// challenge — the full challenge data object (title, image, tags, dates, etc.)
+// onPress   — a function to call when the card is tapped. The card doesn't decide 
+//             where to navigate — it just calls whatever function the parent screen passed in
+// onStar    — a function to call when the star is tapped. Optional — only some screens pass this
+// isStarred — boolean, whether this challenge is currently favorited by the user
+// compact   — boolean, whether to render the small horizontal scroll version
 export default function ChallengeCard({ challenge, onPress, onStar, isStarred, compact }) {
+  // Calling .length on non-existing participants would throw an error because you can't call
+  //     .length on undefined. ?. is optional chaining. If challenge participants exists, return
+  //     its length. ?? 0 nullish coalescing - if left side is null or undefined, use 0.
   const participantCount = challenge.participants?.length ?? 0;
-  const daysLeft = challenge.endDate
-    ? Math.max(0, Math.ceil((new Date(challenge.endDate) - new Date()) / 86400000))
+  // 86,400,000ms in one day. 
+  const daysLeft = challenge.endDate? Math.max(0, Math.ceil((new Date(challenge.endDate) - new Date()) / 86400000))
     : null;
 
+  // If compact-true displays the smaller card on the Home screen
   if (compact) {
     return (
+      // when clicked, active opacity slightly dims the card. Gives user visual feedback of press/click.
       <TouchableOpacity style={styles.compact} onPress={onPress} activeOpacity={0.85}>
         <View style={styles.compactImage}>
+          {/* If there is a real image, show it. Else, use challenge's emoji */}
           {challenge.imageURL ? (
             <Image source={{ uri: challenge.imageURL }} style={styles.compactImg} />
           ) : (
@@ -29,9 +47,11 @@ export default function ChallengeCard({ challenge, onPress, onStar, isStarred, c
     );
   }
 
+  // Else compact-false displays full-sized card on Discovery screen list
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
       <View style={styles.row}>
+        {/* onStar is passed in on Discovery Screen but not on Home Screen */}
         {onStar && (
           <TouchableOpacity onPress={onStar} style={styles.star}>
             <Ionicons
