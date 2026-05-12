@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Let's Go! — Static Preview</title>
+<style>
+  /* ------- Design tokens (mirrors src/theme.js) ------- */
+  :root {
+    --primary: #4A90D9;
+    --primary-dark: #2E6DB4;
+    --accent: #FF6B35;
+    --background: #F2F2F7;
+    --card: #FFFFFF;
+    --text-primary: #1C1C1E;
+    --text-secondary: #8E8E93;
+    --border: #E5E5EA;
+    --gold: #FFD700;
+    --green: #34C759;
+    --red: #FF3B30;
+    --light-blue: #E8F1FB;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #1f2937;
+    color: #fff;
+  }
+  header.page-header {
+    text-align: center;
+    padding: 32px 16px 8px;
+  }
+  header.page-header h1 { margin: 0 0 4px; font-size: 28px; }
+  header.page-header p  { margin: 0; color: #9ca3af; font-size: 14px; }
+
+  .note {
+    max-width: 720px;
+    margin: 16px auto;
+    background: #374151;
+    border-left: 4px solid var(--primary);
+    padding: 12px 16px;
+    border-radius: 6px;
+    color: #e5e7eb;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .phones {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 32px;
+    padding: 32px 24px 64px;
+  }
+
+  /* iPhone-ish frame */
+  .phone {
+    width: 360px;
+    height: 740px;
+    background: #000;
+    border-radius: 40px;
+    padding: 10px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    position: relative;
+  }
+  .phone-screen {
+    width: 100%;
+    height: 100%;
+    background: var(--background);
+    border-radius: 32px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .notch {
+    position: absolute;
+    top: 14px; left: 50%;
+    transform: translateX(-50%);
+    width: 120px; height: 26px;
+    background: #000;
+    border-radius: 14px;
+    z-index: 10;
+  }
+  .phone-label {
+    text-align: center;
+    margin-top: 12px;
+    color: #d1d5db;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* ------- Shared widgets ------- */
+  .status-bar {
+    height: 44px;
+    background: var(--primary);
+    flex-shrink: 0;
+  }
+  .app-header {
+    background: var(--primary);
+    color: white;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .avatar {
+    width: 40px; height: 40px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 16px;
+  }
+  .hamburger {
+    font-size: 24px;
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+  }
+  .content {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  /* ------- Login screen ------- */
+  .login-bg {
+    background: var(--primary);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px;
+  }
+  .logo-section { text-align: center; margin-bottom: 32px; }
+  .logo-circle {
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    background: white;
+    margin: 0 auto 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 48px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .app-title { font-size: 30px; font-weight: 800; color: white; letter-spacing: 0.5px; margin: 0; }
+  .app-subtitle { font-size: 14px; color: rgba(255,255,255,0.8); margin: 4px 0 0; }
+
+  .card {
+    background: white;
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .card-title { font-size: 20px; font-weight: 700; color: var(--text-primary); margin: 0 0 16px; }
+  .label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 4px;
+  }
+  .input {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 14px;
+    background: var(--background);
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+  }
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 16px;
+    margin-top: 8px;
+  }
+  .link-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 16px;
+  }
+  .link { color: var(--primary); font-size: 14px; font-weight: 600; }
+
+  /* ------- Home screen ------- */
+  .greeting { color: rgba(255,255,255,0.8); font-size: 12px; }
+  .name { color: white; font-size: 16px; font-weight: 700; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+
+  .quick-actions {
+    display: flex;
+    gap: 8px;
+    background: white;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .quick-btn {
+    flex: 1;
+    background: var(--light-blue);
+    border-radius: 8px;
+    padding: 8px;
+    text-align: center;
+    color: var(--primary);
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .quick-btn .icon { font-size: 18px; display: block; margin-bottom: 2px; }
+
+  .section { padding: 24px 16px 0; }
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .section-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0; }
+  .see-all { font-size: 12px; color: var(--primary); font-weight: 600; }
+
+  .empty-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .empty-emoji { font-size: 40px; display: block; margin-bottom: 12px; }
+  .empty-text { font-size: 14px; color: var(--text-secondary); margin: 0 0 12px; }
+  .empty-btn {
+    display: inline-block;
+    background: var(--primary);
+    color: white;
+    border-radius: 8px;
+    padding: 8px 24px;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .challenge-card {
+    background: white;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .challenge-emoji {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    background: var(--light-blue);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    flex-shrink: 0;
+  }
+  .challenge-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin: 0 0 2px; }
+  .challenge-meta  { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+  .badges-row { display: flex; gap: 16px; padding-bottom: 8px; }
+  .badge-icon {
+    width: 50px; height: 50px;
+    border-radius: 25px;
+    background: var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  /* ------- Discovery screen ------- */
+  .search-row {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+  }
+  .search-input {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+    background: var(--background);
+    color: var(--text-secondary);
+  }
+  .search-btn {
+    background: var(--primary);
+    color: white;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    padding: 8px 16px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+  }
+  .chip {
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--background);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+  .chip.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  .challenge-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+  }
+  .heart {
+    font-size: 20px;
+    color: var(--red);
+  }
+  .heart.off { color: var(--border); }
+
+  /* ------- Profile screen ------- */
+  .profile-header {
+    background: var(--primary);
+    color: white;
+    padding: 32px 16px 24px;
+    text-align: center;
+  }
+  .profile-avatar {
+    width: 90px; height: 90px;
+    border-radius: 45px;
+    background: rgba(255,255,255,0.3);
+    margin: 0 auto 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px;
+    font-weight: 700;
+  }
+  .profile-name { font-size: 20px; font-weight: 700; margin: 0; }
+  .profile-email { font-size: 13px; color: rgba(255,255,255,0.8); margin: 2px 0 0; }
+
+  .profile-section {
+    background: white;
+    margin-top: 16px;
+  }
+  .profile-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .profile-row:last-child { border-bottom: none; }
+  .profile-row-label { font-size: 14px; color: var(--text-primary); }
+  .profile-row-value { font-size: 13px; color: var(--text-secondary); }
+  .toggle {
+    width: 44px; height: 26px;
+    border-radius: 13px;
+    background: var(--green);
+    position: relative;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; right: 2px;
+    width: 22px; height: 22px;
+    background: white;
+    border-radius: 11px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  }
+
+  .danger-btn {
+    color: var(--red);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 14px 16px;
+    background: white;
+    text-align: center;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    background: white;
+    padding: 16px 0;
+    text-align: center;
+  }
+  .stat-num { font-size: 22px; font-weight: 800; color: var(--primary); margin: 0; }
+  .stat-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin: 2px 0 0; }
+</style>
+</head>
+<body>
+
+<header class="page-header">
+  <h1>Let's Go! — Screen Preview</h1>
+  <p>Static HTML mockup of the skeleton. No npm, Firebase, or bundler required.</p>
+</header>
+
+<div class="note">
+  This is a visual approximation of the React Native screens in <code>src/screens/</code>, translated to HTML/CSS using the same design tokens from <code>theme.js</code>. Pixel spacing and fonts differ slightly from the real mobile UI, but layout, colors, and component structure match the skeleton.
+</div>
+
+<div class="phones">
+
+  <!-- ========== LOGIN SCREEN ========== -->
+  <div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="notch"></div>
+        <div class="login-bg">
+          <div class="logo-section">
+            <div class="logo-circle">💪</div>
+            <h2 class="app-title">Let's Go!</h2>
+            <p class="app-subtitle">Community Fitness Challenges</p>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Sign In</h3>
+            <p class="label">Email</p>
+            <div class="input">your@email.com</div>
+            <p class="label">Password</p>
+            <div class="input">••••••••</div>
+            <div class="btn-primary">Log In</div>
+            <div class="link-row">
+              <span class="link">Create Account</span>
+              <span class="link">Forgot Password</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">LoginScreen.js</div>
+  </div>
+
+  <!-- ========== HOME SCREEN ========== -->
+  <div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="notch"></div>
+        <div class="status-bar"></div>
+        <div class="app-header">
+          <div class="header-left">
+            <div class="avatar">M</div>
+            <div>
+              <div class="greeting">Hello,</div>
+              <div class="name">Matthew 👋</div>
+            </div>
+          </div>
+          <button class="hamburger">☰</button>
+        </div>
+        <div class="content">
+          <div class="quick-actions">
+            <div class="quick-btn"><span class="icon">➕</span>Create</div>
+            <div class="quick-btn"><span class="icon">🔍</span>Discover</div>
+            <div class="quick-btn"><span class="icon">💬</span>Messages</div>
+          </div>
+
+          <div class="section">
+            <div class="section-header">
+              <h3 class="section-title">Active Challenges</h3>
+              <span class="see-all">+ Join more</span>
+            </div>
+            <div class="challenge-card">
+              <div class="challenge-emoji">🏃</div>
+              <div>
+                <p class="challenge-title">30-Day Run Streak</p>
+                <p class="challenge-meta">142 participants · Day 12/30</p>
+              </div>
+            </div>
+            <div class="challenge-card">
+              <div class="challenge-emoji">💧</div>
+              <div>
+                <p class="challenge-title">Hydration Challenge</p>
+                <p class="challenge-meta">87 participants · Day 5/21</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3 class="section-title">Completed Challenges</h3>
+            <div class="challenge-card">
+              <div class="challenge-emoji">🧘</div>
+              <div>
+                <p class="challenge-title">Morning Yoga</p>
+                <p class="challenge-meta">Completed · 21 days</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3 class="section-title">My Badges</h3>
+            <div class="badges-row">
+              <div class="badge-icon">🏆</div>
+              <div class="badge-icon">🔥</div>
+              <div class="badge-icon">⭐</div>
+              <div class="badge-icon">💪</div>
+            </div>
+          </div>
+          <div style="height: 32px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">HomeScreen.js</div>
+  </div>
+
+  <!-- ========== DISCOVERY SCREEN ========== -->
+  <div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="notch"></div>
+        <div class="status-bar" style="background: var(--primary);"></div>
+        <div style="background: var(--primary); color: white; padding: 12px 16px; font-weight: 700; text-align: center;">Find a Challenge</div>
+
+        <div class="search-row">
+          <div class="search-input">Search by tag (e.g. running)</div>
+          <div class="search-btn">Search</div>
+        </div>
+        <div class="filter-row">
+          <div class="chip active">All</div>
+          <div class="chip">★ Favorites</div>
+          <div class="chip">Popular</div>
+          <div class="chip">New</div>
+        </div>
+
+        <div class="content" style="background: white;">
+          <div class="challenge-row">
+            <div class="challenge-emoji">🏃</div>
+            <div style="flex:1">
+              <p class="challenge-title">30-Day Run Streak</p>
+              <p class="challenge-meta">#running #outdoor · 142 joined</p>
+            </div>
+            <div class="heart">♥</div>
+          </div>
+          <div class="challenge-row">
+            <div class="challenge-emoji">🏋️</div>
+            <div style="flex:1">
+              <p class="challenge-title">Lift Heavy Things</p>
+              <p class="challenge-meta">#strength #gym · 98 joined</p>
+            </div>
+            <div class="heart off">♡</div>
+          </div>
+          <div class="challenge-row">
+            <div class="challenge-emoji">🚴</div>
+            <div style="flex:1">
+              <p class="challenge-title">Cycle to Work Week</p>
+              <p class="challenge-meta">#cycling #commute · 64 joined</p>
+            </div>
+            <div class="heart off">♡</div>
+          </div>
+          <div class="challenge-row">
+            <div class="challenge-emoji">🧘</div>
+            <div style="flex:1">
+              <p class="challenge-title">21-Day Meditation</p>
+              <p class="challenge-meta">#mindfulness #wellness · 211 joined</p>
+            </div>
+            <div class="heart">♥</div>
+          </div>
+          <div class="challenge-row">
+            <div class="challenge-emoji">💧</div>
+            <div style="flex:1">
+              <p class="challenge-title">Drink More Water</p>
+              <p class="challenge-meta">#hydration #daily · 87 joined</p>
+            </div>
+            <div class="heart off">♡</div>
+          </div>
+          <div class="challenge-row">
+            <div class="challenge-emoji">🥗</div>
+            <div style="flex:1">
+              <p class="challenge-title">Eat a Veggie a Day</p>
+              <p class="challenge-meta">#nutrition #healthy · 52 joined</p>
+            </div>
+            <div class="heart off">♡</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">DiscoveryScreen.js</div>
+  </div>
+
+  <!-- ========== PROFILE SCREEN ========== -->
+  <div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="notch"></div>
+        <div class="profile-header">
+          <div class="profile-avatar">M</div>
+          <p class="profile-name">Matthew Kho</p>
+          <p class="profile-email">mattkho922@gmail.com</p>
+        </div>
+
+        <div class="stats-grid">
+          <div>
+            <p class="stat-num">3</p>
+            <p class="stat-label">Active</p>
+          </div>
+          <div>
+            <p class="stat-num">7</p>
+            <p class="stat-label">Completed</p>
+          </div>
+          <div>
+            <p class="stat-num">4</p>
+            <p class="stat-label">Badges</p>
+          </div>
+        </div>
+
+        <div class="profile-section">
+          <div class="profile-row">
+            <span class="profile-row-label">Display Name</span>
+            <span class="profile-row-value">Matthew Kho ›</span>
+          </div>
+          <div class="profile-row">
+            <span class="profile-row-label">Change Photo</span>
+            <span class="profile-row-value">›</span>
+          </div>
+          <div class="profile-row">
+            <span class="profile-row-label">Change Password</span>
+            <span class="profile-row-value">›</span>
+          </div>
+        </div>
+
+        <div class="profile-section">
+          <div class="profile-row">
+            <span class="profile-row-label">Allow message replies</span>
+            <span class="toggle"></span>
+          </div>
+          <div class="profile-row">
+            <span class="profile-row-label">Show online status</span>
+            <span class="toggle"></span>
+          </div>
+        </div>
+
+        <div class="profile-section">
+          <div class="danger-btn">Log Out</div>
+          <div class="danger-btn" style="border-top: 1px solid var(--border);">Delete Account</div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">ProfileScreen.js</div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -32,7 +32,8 @@
           "photosPermission": "Allow Let's Go! to access your photos for challenge images.",
           "cameraPermission": "Allow Let's Go! to use your camera for challenge photos."
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }
