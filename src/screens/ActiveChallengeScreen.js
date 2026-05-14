@@ -28,9 +28,12 @@ import {
   addDoc,
   increment,
   serverTimestamp,
+  arrayRemove,
+  deleteField,
+  writeBatch,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { db, storage } from '../firebase/config';
 import ChatMessage from '../components/ChatMessage';
@@ -40,7 +43,7 @@ import { COLORS, SPACING, SIZES, RADIUS, SHADOW } from '../theme';
 export default function ActiveChallengeScreen() {
   const route = useRoute();
   const { challengeId } = route.params;
-  const { user, userProfile, updateUserProfile } = useAuth();
+  const { user, userProfile, updateUserProfile, refreshUserProfile } = useAuth();
 
   const [challenge, setChallenge] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -52,6 +55,9 @@ export default function ActiveChallengeScreen() {
   const [posting, setPosting] = useState(false);
   const [replyTarget, setReplyTarget] = useState(null);
   const [completedGoals, setCompletedGoals] = useState([]);
+
+  const navigation = useNavigation();
+  const [leaving, setLeaving] = useState(false);
 
   const myCheckIns = challenge?.checkIns?.[user?.uid] || 0;
   const daysLeft = challenge?.endDate
@@ -109,6 +115,73 @@ export default function ActiveChallengeScreen() {
       Alert.alert('Error', 'Could not check in. Please try again.');
     } finally {
       setCheckingIn(false);
+    }
+  }
+
+
+  async function handleLeave() { 
+    /*
+    Handles leaving the challenge for the user once they click the associated button. Provides a warning prior.
+    Calls doLeave to do the actual logic to leave
+
+    NOTE: Copied from same function from Challenge DetailScreen.js
+    */
+    const leaveTitle = 'Leave Challenge?';
+    const leaveMessage = 'Are you sure you want to leave? All progress will be lost';
+  
+    // if user is using web
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${leaveTitle}\n\n${leaveMessage}`)) {
+        doLeave();
+      }
+    } else {
+      Alert.alert(leaveTitle, leaveMessage, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Leave', style: 'destructive', onPress: doLeave },
+      ]);
+    }
+  }
+
+
+  async function doLeave() {
+    /*
+    Removes from challenge and updates the challenge's participant list
+    
+    NOTE: Mostly copied from same function from Challenge DetailScreen.js, with minor modifications
+    */
+    setLeaving(true);
+    try {
+      const batch = writeBatch(db);
+      const challengeRef = doc(db, 'challenges', challengeId);
+      const userRef = doc(db, 'users', user.uid);
+  
+      // updates the backend challege data removing user and decrementing
+      batch.update(challengeRef, {
+        participants: arrayRemove(user.uid),
+        participantCount: increment(-1),
+        [`checkIns.${user.uid}`]: deleteField(),
+      });
+      
+      // removes the challengeID from user's data
+      batch.update(userRef, {
+        joinedChallenges: arrayRemove(challengeId),
+      });
+      
+      // sends all updates to Firestore simultaneuouly  
+      await batch.commit();
+      await refreshUserProfile?.();
+      navigation.goBack();
+  
+    } catch (err) {
+  
+      // different errors based on if user is using web vs phone
+      if (Platform.OS === 'web') {
+        window.alert('Could not leave the challenge. Please try again.');
+      } else {
+        Alert.alert('Error', 'Could not leave the challenge. Please try again.');
+      }
+    } finally {
+      setLeaving(false);
     }
   }
 
@@ -283,6 +356,18 @@ export default function ActiveChallengeScreen() {
                 </>
               )}
             </TouchableOpacity>
+
+            {/* Leave Button */}
+              {userProfile?.joinedChallenges?.includes(challengeId) && (
+                <TouchableOpacity
+                  style={styles.leaveBtn}
+                  onPress={handleLeave}
+                  disabled={leaving}
+                >
+                  <Ionicons name="exit-outline" size={18} color={COLORS.red} />
+                  <Text style={styles.leaveBtnText}>Leave Challenge</Text>
+                </TouchableOpacity>
+              )}
 
             {/* Stats */}
             <View style={styles.statsRow}>
@@ -624,4 +709,23 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
   },
   postBtnText: { color: COLORS.white, fontWeight: '700', fontSize: SIZES.medium },
+
+  leaveBtn: { // copied from joinBtn
+    backgroundColor: COLORS.red, //'transparent',
+    borderWidth: 1.5,
+    borderColor: COLORS.red,
+    borderRadius: RADIUS.sm,
+    padding: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+    marginTop: -SPACING.sm, // tightens the gap to the button above
+  },
+leaveBtnText: {
+  color: COLORS.white,
+  fontSize: SIZES.medium,
+  fontWeight: '600',
+  },
 });
