@@ -29,6 +29,7 @@ import {
   increment,
   serverTimestamp,
   arrayRemove,
+  arrayUnion,
   deleteField,
   writeBatch,
 } from 'firebase/firestore';
@@ -201,7 +202,10 @@ export default function ActiveChallengeScreen() {
 
       // Check if all goals completed
       if (challenge?.goals && updated.length === challenge.goals.length) {
-        await handleChallengeComplete();
+        const alreadyCompleted = userProfile?.completedChallenges?.includes(challengeId);
+        if (!alreadyCompleted) {
+          await handleChallengeComplete();
+        }
       }
     } catch (err) {
       console.error('Toggle goal error:', err);
@@ -222,7 +226,7 @@ export default function ActiveChallengeScreen() {
       });
       // Mark user as wall-of-famer for this challenge
       await updateDoc(doc(db, 'challenges', challengeId), {
-        wallOfFame: [...((challenge.wallOfFame || [])), { uid: user.uid, name: userProfile?.displayName }],
+        wallOfFame: arrayUnion({ uid: user.uid, name: userProfile?.displayName }),
       });
     } catch (err) {
       console.error('Completion error:', err);
@@ -272,7 +276,7 @@ export default function ActiveChallengeScreen() {
                 userDisplayName: userProfile?.displayName || user.displayName,
                 userPhotoURL: userProfile?.photoURL || null,
                 text: postText.trim(),
-                timestamp: new Date().toISOString(),
+                timestamp: serverTimestamp(), // server clock
               },
             ],
           });
