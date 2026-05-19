@@ -1,6 +1,7 @@
 # Expo
 .expo/
 web-build/
+preview.html
 *.orig.*
 *.jks
 *.p8
