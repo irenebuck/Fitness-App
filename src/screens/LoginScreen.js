@@ -47,14 +47,14 @@ export default function LoginScreen() {
 
   async function handleLogin() {
     // if either field (less/trimmed spaces) is blank, return error
-    if (!email.trim() || !password.trim()) {
+    if (!email?.trim() || !password?.trim()) {
       Alert.alert('Error', 'Please enter your email and password.');
       return;
     }
     // else show spinner while waiting for login approval
     setLoginLoading(true);
     try {
-      await login(email.trim(), password);
+      await login(email?.trim(), password);
     } catch (err) {
       if(Platform.OS === 'web') {
         window.alert('Login Failed: ' + friendlyError(err.code))
@@ -68,7 +68,7 @@ export default function LoginScreen() {
 
   // Called when user clicks Create Account on Login Screen
   async function handleSignup() {
-    if (!signupName.trim() || !signupEmail.trim() || !signupPassword || !signupConfirm) {
+    if (!signupName?.trim() || !signupEmail?.trim() || !signupPassword || !signupConfirm) {
       if(Platform.OS === 'web') {
         window.alert('Error: Please fill in all fields.')
       } else {
@@ -94,7 +94,7 @@ export default function LoginScreen() {
     }
     setSignupLoading(true);
     try {
-      await signup(signupName.trim(), signupEmail.trim(), signupPassword);
+      await signup(signupName?.trim(), signupEmail?.trim(), signupPassword);
       setShowSignup(false);
     } catch (err) {
       if(Platform.OS === 'web') {
@@ -108,7 +108,7 @@ export default function LoginScreen() {
   }
 
   async function handleForgotPassword() {
-    if (!forgotEmail.trim()) {
+    if (!forgotEmail?.trim()) {
       if(Platform.OS === 'web') {
           window.alert('Error: Please enter your email address.')
         } else {
@@ -118,7 +118,7 @@ export default function LoginScreen() {
     }
     setForgotLoading(true);
     try {
-      await resetPassword(forgotEmail.trim());
+      await resetPassword(forgotEmail?.trim());
       if(Platform.OS === 'web') {
         window.alert('Email Sent: If an account exists for that email, you will receive reset instructions.')
       } else {
@@ -141,10 +141,6 @@ export default function LoginScreen() {
     switch (code) {
       case 'auth/invalid-credential':
         return 'Password or Email Incorrect. Please Try Again';
-      case 'auth/user-not-found':  // incorrect email message no longer supported. 
-        return 'No account found with that email.';
-      case 'auth/wrong-password': // incorrect passord message no longer supported. 
-        return 'Incorrect password. Try again.';
       case 'auth/email-already-in-use':
         return 'An account with this email already exists.';
       case 'auth/invalid-email':
