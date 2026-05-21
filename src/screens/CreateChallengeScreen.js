@@ -14,10 +14,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { collection, addDoc, updateDoc, doc, arrayUnion } from 'firebase/firestore';
+import { collection, addDoc, arrayUnion } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -43,9 +42,20 @@ const BADGE_OPTIONS = [
   { key: 'social', label: 'Social Butterfly', emoji: '🤝' },
 ];
 
+/**
+ CreateChallengeScreen
+ 
+ Allows the logged-in user to create a new challenge.
+ Collects title, goal, and participants, then saves to the Firestore DB.
+ Then navigates back to Home on success.
+
+ */
+
 export default function CreateChallengeScreen() {
   const navigation = useNavigation();
   const { user, userProfile, updateUserProfile } = useAuth();
+
+  // Each useState creates a Variable and a setter for that variable. 
 
   const [selectedType, setSelectedType] = useState(null);
   const [title, setTitle] = useState('');
@@ -54,12 +64,17 @@ export default function CreateChallengeScreen() {
   const [endDate, setEndDate] = useState('');
   const [checkInGoal, setCheckInGoal] = useState('');
   const [tagsInput, setTagsInput] = useState('');
-  const [goals, setGoals] = useState(['']);
+  // Goals starts as array of 3 goals (Max)
+  const [goals, setGoals] = useState(['', '', '']);
   const [selectedBadge, setSelectedBadge] = useState('completion');
   const [isPublic, setIsPublic] = useState(true);
   const [imageUri, setImageUri] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
+
+  // Loading is used while the connection to the DB is made  = True, when it's completed  = False 
+
+  const [loading, setLoading] = useState(false);
+
 
   async function pickImage() {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -82,19 +97,10 @@ export default function CreateChallengeScreen() {
     return getDownloadURL(storageRef);
   }
 
-  function addGoal() {
-    setGoals([...goals, '']);
-  }
-
   function updateGoal(text, idx) {
     const updated = [...goals];
     updated[idx] = text;
     setGoals(updated);
-  }
-
-  function removeGoal(idx) {
-    if (goals.length === 1) return;
-    setGoals(goals.filter((_, i) => i !== idx));
   }
 
   function parseTags(input) {
@@ -104,24 +110,33 @@ export default function CreateChallengeScreen() {
       .filter(Boolean);
   }
 
+
+    // handles alerts cross platform (the outlier is Web)
+  function showError(title, message, buttons) {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}: ${message}`);
+      if (buttons?.[0]?.onPress) buttons[0].onPress();
+    } else {
+      Alert.alert(title, message, buttons);
+    }
+  }
+
+    // Submitting the form to the DB 
+
   async function handleCreate() {
     if (!title.trim()) {
-      Alert.alert('Error', 'Please enter a challenge title.');
-      return;
+      return showError('Error', 'Please enter a challenge title.');
     }
     if (!selectedType) {
-      Alert.alert('Error', 'Please select a challenge type.');
-      return;
+      return showError('Error', 'Please select a challenge type.');
     }
     if (!startDate.trim() || !endDate.trim()) {
-      Alert.alert('Error', 'Please enter start and end dates (MM/DD/YYYY).');
-      return;
+      return showError('Error', 'Please enter start and end dates (MM/DD/YYYY).');
     }
 
     const validGoals = goals.filter((g) => g.trim());
     if (validGoals.length === 0) {
-      Alert.alert('Error', 'Add at least one goal.');
-      return;
+      return showError('Error', 'Add at least one goal.');
     }
 
     setLoading(true);
@@ -166,12 +181,12 @@ export default function CreateChallengeScreen() {
         joinedChallenges: arrayUnion(docRef.id),
       });
 
-      Alert.alert('Challenge Created!', `"${title.trim()}" is live. Good luck!`, [
+      showError('Challenge Created!', `"${title.trim()}" is live. Good luck!`, [
         { text: 'OK', onPress: () => navigation.navigate('Home') },
       ]);
     } catch (err) {
       console.error('Create challenge error:', err);
-      Alert.alert('Error', 'Failed to create challenge. Please try again.');
+      showError('Error', 'Failed to create challenge. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -242,31 +257,20 @@ export default function CreateChallengeScreen() {
           maxLength={2}
         />
 
-        {/* Goals */}
-        <Text style={styles.label}>Goals *</Text>
-        {goals.map((goal, idx) => (
-          <View key={idx} style={styles.goalRow}>
-            <View style={styles.goalBullet}>
-              <Text style={styles.goalNumber}>{idx + 1}</Text>
-            </View>
-            <TextInput
-              style={[styles.input, { flex: 1, marginBottom: 0 }]}
-              placeholder={`Goal ${idx + 1}`}
-              placeholderTextColor={COLORS.textSecondary}
-              value={goal}
-              onChangeText={(text) => updateGoal(text, idx)}
-            />
-            {goals.length > 1 && (
-              <TouchableOpacity onPress={() => removeGoal(idx)} style={styles.removeGoal}>
-                <Ionicons name="close-circle" size={22} color={COLORS.red} />
-              </TouchableOpacity>
-            )}
-          </View>
-        ))}
-        <TouchableOpacity style={styles.addGoalBtn} onPress={addGoal}>
-          <Ionicons name="add-circle-outline" size={18} color={COLORS.primary} />
-          <Text style={styles.addGoalText}>Add Goal</Text>
-        </TouchableOpacity>
+      {/* Goals - map is looping over the 3 entries of goals  */}
+      <Text style={styles.label}>Goals * (up to 3)</Text>
+      {goals.map((goal, idx) => (
+        <View key={idx} style={styles.goalRow}>
+          <View style={styles.goalBullet}><Text style={styles.goalNumber}>{idx + 1}</Text></View>
+          <TextInput
+            style={[styles.input, { flex: 1, marginBottom: 0 }]}
+            placeholder={`Goal ${idx + 1}`}
+            placeholderTextColor={COLORS.textSecondary}
+            value={goal}
+            onChangeText={(text) => updateGoal(text, idx)}
+          />
+        </View>
+      ))}
 
         {/* Description */}
         <Text style={styles.label}>Description</Text>
@@ -462,21 +466,6 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontWeight: '700',
     fontSize: SIZES.small,
-  },
-  removeGoal: {
-    padding: SPACING.xs,
-  },
-  addGoalBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-  addGoalText: {
-    color: COLORS.primary,
-    fontWeight: '600',
-    fontSize: SIZES.medium,
   },
   imagePicker: {
     borderWidth: 1,

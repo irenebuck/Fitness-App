@@ -56,7 +56,11 @@ export default function LoginScreen() {
     try {
       await login(email.trim(), password);
     } catch (err) {
-      Alert.alert('Login Failed', friendlyError(err.code));
+      if(Platform.OS === 'web') {
+        window.alert('Login Failed: ' + friendlyError(err.code))
+      } else {
+        Alert.alert('Login Failed', friendlyError(err.code));
+        }
     } finally {
       setLoginLoading(false);
     }
@@ -65,15 +69,27 @@ export default function LoginScreen() {
   // Called when user clicks Create Account on Login Screen
   async function handleSignup() {
     if (!signupName.trim() || !signupEmail.trim() || !signupPassword || !signupConfirm) {
-      Alert.alert('Error', 'Please fill in all fields.');
+      if(Platform.OS === 'web') {
+        window.alert('Error: Please fill in all fields.')
+      } else {
+        Alert.alert('Error', 'Please fill in all fields.');
+      }
       return;
     }
     if (signupPassword !== signupConfirm) {
-      Alert.alert('Error', 'Passwords do not match.');
+      if(Platform.OS === 'web') {
+        window.alert('Error: Passwords do not match.')
+      } else {
+        Alert.alert('Error', 'Passwords do not match.');
+      }
       return;
     }
     if (signupPassword.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters.');
+      if(Platform.OS === 'web') {
+        window.alert('Error: Password must be at least 6 characters.')
+      } else {
+        Alert.alert('Error', 'Password must be at least 6 characters.');
+      }
       return;
     }
     setSignupLoading(true);
@@ -81,7 +97,11 @@ export default function LoginScreen() {
       await signup(signupName.trim(), signupEmail.trim(), signupPassword);
       setShowSignup(false);
     } catch (err) {
-      Alert.alert('Sign Up Failed', friendlyError(err.code));
+      if(Platform.OS === 'web') {
+        window.alert('Sign Up Failed' + friendlyError(err.code))
+      } else {
+        Alert.alert('Sign Up Failed', friendlyError(err.code));
+      }
     } finally {
       setSignupLoading(false);
     }
@@ -89,17 +109,29 @@ export default function LoginScreen() {
 
   async function handleForgotPassword() {
     if (!forgotEmail.trim()) {
-      Alert.alert('Error', 'Please enter your email address.');
+      if(Platform.OS === 'web') {
+          window.alert('Error: Please enter your email address.')
+        } else {
+          Alert.alert('Error', 'Please enter your email address.');
+        }
       return;
     }
     setForgotLoading(true);
     try {
       await resetPassword(forgotEmail.trim());
-      Alert.alert('Email Sent', 'If an account exists for that email, you will receive reset instructions.');
+      if(Platform.OS === 'web') {
+        window.alert('Email Sent: If an account exists for that email, you will receive reset instructions.')
+      } else {
+        Alert.alert('Email Sent', 'If an account exists for that email, you will receive reset instructions.');
+      }
       setShowForgot(false);
       setForgotEmail('');
     } catch (err) {
-      Alert.alert('Error', friendlyError(err.code));
+      if(Platform.OS === 'web') {
+        window.alert('Error: ' + friendlyError(err.code))
+      } else {
+        Alert.alert('Error', friendlyError(err.code));
+      }
     } finally {
       setForgotLoading(false);
     }
@@ -107,9 +139,11 @@ export default function LoginScreen() {
 
   function friendlyError(code) {
     switch (code) {
-      case 'auth/user-not-found':
+      case 'auth/invalid-credential':
+        return 'Password or Email Incorrect. Please Try Again';
+      case 'auth/user-not-found':  // incorrect email message no longer supported. 
         return 'No account found with that email.';
-      case 'auth/wrong-password':
+      case 'auth/wrong-password': // incorrect passord message no longer supported. 
         return 'Incorrect password. Try again.';
       case 'auth/email-already-in-use':
         return 'An account with this email already exists.';
