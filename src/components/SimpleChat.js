@@ -40,7 +40,8 @@ import { COLORS, SPACING, SIZES, RADIUS } from '../theme';
  *     (imageURL, replies[]) remain permitted by the schema and rules,
  *     so a richer chat can be added later — no data
  *     migration required.
- *
+ * Scope (v2):
+ *   - Image handling capabilities
  * Author: Kevin Penate  |  Progress Report #1  |  2026-04-22
  */
 export default function SimpleChat({ challengeId }) {
@@ -51,6 +52,38 @@ export default function SimpleChat({ challengeId }) {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const listRef = useRef(null);
+
+
+/* 
+ * return lowercase file extension parsed from path string
+ * is automatically assigned jpg if extension not found
+ */
+
+function getFileExtension(uri = '') {
+  // strips the query
+  const clean = uri.split('?')[0].split('#')[0];
+  const match = clean.match(/\.([a-zA-Z0-9]+)$/);
+  return match ? match[1].toLowerCase() : 'jpg';
+}
+
+/*
+ * IOS permession request handler
+ * Returns true if app can proceed, false if access denied
+ */
+async function requestIOSMediaPermission() {
+  if (Platform.OS !== 'ios') return true;
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  // error message if access denied
+  if (status !== 'granted') {
+    Alert.alert(
+      'Photo Permission Required', 'Allow access to your photo library in Settings.',
+      [{text: 'OK' }]
+    );
+    return false;
+  }
+  return true;
+}
+
 
   // Subscribe to this challenge's messages.
   //
@@ -89,8 +122,12 @@ export default function SimpleChat({ challengeId }) {
     return unsub;
   }, [challengeId]);
 
-
+  // Image picker
   async function handlePickImage() {
+    //request ios permession before opening library
+    const allowed = await requestIOSMediaPermission();
+    if (!allowed) return;
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -100,6 +137,7 @@ export default function SimpleChat({ challengeId }) {
       setImageUri(result.assets[0].uri);
     }
   }
+  // Sends 
   async function handleSend() {
     const trimmed = text.trim();
     if (!trimmed && !imageUri || sending) return;
@@ -108,7 +146,9 @@ export default function SimpleChat({ challengeId }) {
       let imageURL = null;
       if (imageUri){
         const blob = await fetch(imageUri).then(r =>r.blob());
-        const storageRef = ref(storage, `messages/${user.uid}_${Date.now()}.jpg`);
+        // pull extension from uri
+        const ext = getFileExtension(imageUri);
+        const storageRef = ref(storage, `messages/${user.uid}_${Date.now()}.${ext}`);
         await uploadBytes(storageRef, blob);
         imageURL = await getDownloadURL(storageRef);
       }
@@ -143,7 +183,7 @@ export default function SimpleChat({ challengeId }) {
         )}
         <View style={[styles.bubble, isOwn ? styles.bubbleOwn : styles.bubbleOther]}>
           {item.imageURL && (
-            <Image source= {{uri: item.imageURL}} style={styles.messageImage} resizeMode='cover'/>
+            <Image source= {{uri: item.imageURL}} style={styles.messageImage} resizeMode='contain'/>
           )}
           <Text style={[styles.bubbleText, isOwn && styles.bubbleTextOwn]}>
             {item.text}
@@ -211,6 +251,7 @@ export default function SimpleChat({ challengeId }) {
   );
 }
 
+// Style sheets
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   loading: { padding: SPACING.xl, alignItems: 'center' },
@@ -276,7 +317,7 @@ const styles = StyleSheet.create({
   },
   messageImage: {
     width: 200,
-    height: 150,
+    height: 200,
     borderRadius: RADIUS.md,
     marginBottom: SPACING.xs,
   },
