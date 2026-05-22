@@ -8,14 +8,10 @@ import {
   Image,
   ActivityIndicator,
   Alert,
-  Modal,
-  TextInput,
-  FlatList,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import {
   doc,
   getDoc,
@@ -23,9 +19,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
-  onSnapshot,
-  addDoc,
   increment,
   serverTimestamp,
   arrayRemove,
@@ -33,13 +26,12 @@ import {
   deleteField,
   writeBatch,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { db, storage } from '../firebase/config';
-import ChatMessage from '../components/ChatMessage';
 import BadgeIcon from '../components/BadgeIcon';
 import { COLORS, SPACING, SIZES, RADIUS, SHADOW } from '../theme';
+import SimpleChat from '../components/SimpleChat';
 
 export default function ActiveChallengeScreen() {
   const route = useRoute();
@@ -47,14 +39,8 @@ export default function ActiveChallengeScreen() {
   const { user, userProfile, updateUserProfile, refreshUserProfile } = useAuth();
 
   const [challenge, setChallenge] = useState(null);
-  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [checkingIn, setCheckingIn] = useState(false);
-  const [showPostModal, setShowPostModal] = useState(false);
-  const [postText, setPostText] = useState('');
-  const [postImageUri, setPostImageUri] = useState(null);
-  const [posting, setPosting] = useState(false);
-  const [replyTarget, setReplyTarget] = useState(null);
   const [completedGoals, setCompletedGoals] = useState([]);
 
   const navigation = useNavigation();
@@ -67,8 +53,6 @@ export default function ActiveChallengeScreen() {
 
   useEffect(() => {
     loadChallenge();
-    const unsubscribe = subscribeToMessages();
-    return unsubscribe;
   }, [challengeId]);
 
   async function loadChallenge() {
@@ -88,17 +72,6 @@ export default function ActiveChallengeScreen() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function subscribeToMessages() {
-    const q = query(
-      collection(db, 'messages'),
-      where('challengeId', '==', challengeId),
-      orderBy('timestamp', 'desc')
-    );
-    return onSnapshot(q, (snap) => {
-      setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
   }
 
   async function handleCheckIn() {
@@ -233,79 +206,7 @@ export default function ActiveChallengeScreen() {
     }
   }
 
-  async function pickPostImage() {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setPostImageUri(result.assets[0].uri);
-    }
-  }
-
-  async function handlePost() {
-    if (!postText.trim() && !postImageUri) {
-      Alert.alert('Error', 'Please add a message or photo.');
-      return;
-    }
-    setPosting(true);
-    try {
-      let imageURL = null;
-      if (postImageUri) {
-        const response = await fetch(postImageUri);
-        const blob = await response.blob();
-        const filename = `messages/${user.uid}_${Date.now()}.jpg`;
-        const storageRef = ref(storage, filename);
-        await uploadBytes(storageRef, blob);
-        imageURL = await getDownloadURL(storageRef);
-      }
-
-      if (replyTarget) {
-        // Add reply to existing message
-        const msgRef = doc(db, 'messages', replyTarget.id);
-        const msgSnap = await getDoc(msgRef);
-        if (msgSnap.exists()) {
-          const replies = msgSnap.data().replies || [];
-          await updateDoc(msgRef, {
-            replies: [
-              ...replies,
-              {
-                id: Date.now().toString(),
-                userId: user.uid,
-                userDisplayName: userProfile?.displayName || user.displayName,
-                userPhotoURL: userProfile?.photoURL || null,
-                text: postText.trim(),
-                timestamp: serverTimestamp(), // server clock
-              },
-            ],
-          });
-        }
-      } else {
-        await addDoc(collection(db, 'messages'), {
-          challengeId,
-          userId: user.uid,
-          userDisplayName: userProfile?.displayName || user.displayName,
-          userPhotoURL: userProfile?.photoURL || null,
-          text: postText.trim(),
-          imageURL,
-          timestamp: serverTimestamp(),
-          replies: [],
-        });
-      }
-
-      setPostText('');
-      setPostImageUri(null);
-      setReplyTarget(null);
-      setShowPostModal(false);
-    } catch (err) {
-      console.error('Post error:', err);
-      Alert.alert('Error', 'Could not post message. Please try again.');
-    } finally {
-      setPosting(false);
-    }
-  }
-
+  
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -433,108 +334,17 @@ export default function ActiveChallengeScreen() {
                 ))}
               </View>
             )}
-
-            {/* Chat */}
-            <View style={styles.section}>
+            <View style={styles.chatSection}>
               <Text style={styles.sectionTitle}>Challenge Chat</Text>
-              {messages.length === 0 ? (
-                <View style={styles.emptyChatBox}>
-                  <Text style={styles.emptyChatText}>
-                    No messages yet. Be the first to post!
-                  </Text>
-                </View>
-              ) : (
-                messages.map((msg) => (
-                  <ChatMessage
-                    key={msg.id}
-                    message={msg}
-                    currentUserId={user.uid}
-                    onReply={(m) => { setReplyTarget(m); setShowPostModal(true); }}
-                  />
-                ))
-              )}
+              <View style={styles.chatWrap}>
+                <SimpleChat challengeId={challengeId} />
+              </View>
             </View>
 
             <View style={{ height: 80 }} />
           </View>
         </ScrollView>
-
-        {/* Floating Post Button */}
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => { setReplyTarget(null); setShowPostModal(true); }}
-        >
-          <Ionicons name="add" size={30} color={COLORS.white} />
-        </TouchableOpacity>
       </KeyboardAvoidingView>
-
-      {/* Post Modal */}
-      <Modal visible={showPostModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.postModal}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {replyTarget ? `Reply to ${replyTarget.userDisplayName}` : 'Post to Chat'}
-              </Text>
-              <TouchableOpacity onPress={() => { setShowPostModal(false); setReplyTarget(null); }}>
-                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            {replyTarget && (
-              <View style={styles.replyPreview}>
-                <Text style={styles.replyPreviewText} numberOfLines={2}>
-                  {replyTarget.text}
-                </Text>
-              </View>
-            )}
-
-            <TextInput
-              style={styles.postInput}
-              placeholder="Share your progress, tips, or encouragement…"
-              placeholderTextColor={COLORS.textSecondary}
-              value={postText}
-              onChangeText={setPostText}
-              multiline
-              numberOfLines={4}
-              maxLength={500}
-              autoFocus
-            />
-
-            {postImageUri && (
-              <View style={styles.imagePreviewWrap}>
-                <Image source={{ uri: postImageUri }} style={styles.postImagePreview} />
-                <TouchableOpacity
-                  style={styles.removeImage}
-                  onPress={() => setPostImageUri(null)}
-                >
-                  <Ionicons name="close-circle" size={24} color={COLORS.red} />
-                </TouchableOpacity>
-              </View>
-            )}
-
-            <View style={styles.postActions}>
-              {!replyTarget && (
-                <TouchableOpacity style={styles.photoBtn} onPress={pickPostImage}>
-                  <Ionicons name="image-outline" size={22} color={COLORS.primary} />
-                  <Text style={styles.photoBtnText}>Add Photo</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={[styles.postBtn, posting && { opacity: 0.6 }]}
-                onPress={handlePost}
-                disabled={posting}
-              >
-                {posting ? (
-                  <ActivityIndicator color={COLORS.white} size="small" />
-                ) : (
-                  <Text style={styles.postBtnText}>Post</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -626,110 +436,5 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
     alignItems: 'center',
   },
-  emptyChatText: { color: COLORS.textSecondary, fontSize: SIZES.medium },
-  fab: {
-    position: 'absolute',
-    bottom: SPACING.xl,
-    right: SPACING.xl,
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...SHADOW.medium,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  postModal: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: RADIUS.lg,
-    borderTopRightRadius: RADIUS.lg,
-    padding: SPACING.xl,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  modalTitle: { fontSize: SIZES.large, fontWeight: '700', color: COLORS.textPrimary },
-  replyPreview: {
-    backgroundColor: COLORS.lightBlue,
-    borderRadius: RADIUS.sm,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    borderLeftWidth: 3,
-    borderLeftColor: COLORS.primary,
-  },
-  replyPreviewText: { color: COLORS.textSecondary, fontSize: SIZES.small },
-  postInput: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.sm,
-    padding: SPACING.md,
-    fontSize: SIZES.medium,
-    color: COLORS.textPrimary,
-    backgroundColor: COLORS.background,
-    minHeight: 100,
-    textAlignVertical: 'top',
-    marginBottom: SPACING.md,
-  },
-  imagePreviewWrap: {
-    position: 'relative',
-    marginBottom: SPACING.md,
-  },
-  postImagePreview: {
-    width: '100%',
-    height: 160,
-    borderRadius: RADIUS.sm,
-    resizeMode: 'cover',
-  },
-  removeImage: {
-    position: 'absolute',
-    top: SPACING.sm,
-    right: SPACING.sm,
-  },
-  postActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  photoBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    padding: SPACING.sm,
-  },
-  photoBtnText: { color: COLORS.primary, fontWeight: '600', fontSize: SIZES.medium },
-  postBtn: {
-    backgroundColor: COLORS.primary,
-    borderRadius: RADIUS.sm,
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.md,
-  },
-  postBtnText: { color: COLORS.white, fontWeight: '700', fontSize: SIZES.medium },
-
-  leaveBtn: { // copied from joinBtn
-    backgroundColor: COLORS.red, //'transparent',
-    borderWidth: 1.5,
-    borderColor: COLORS.red,
-    borderRadius: RADIUS.sm,
-    padding: SPACING.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.lg,
-    marginTop: -SPACING.sm, // tightens the gap to the button above
-  },
-leaveBtnText: {
-  color: COLORS.white,
-  fontSize: SIZES.medium,
-  fontWeight: '600',
-  },
+  
 });
