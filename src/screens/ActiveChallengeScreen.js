@@ -90,6 +90,14 @@ export default function ActiveChallengeScreen() {
     }
   }
 
+  function showError(title, message) {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      showError(title, message);
+    }
+  }
+
   function subscribeToMessages() {
     const q = query(
       collection(db, 'messages'),
@@ -111,9 +119,9 @@ export default function ActiveChallengeScreen() {
         ...prev,
         checkIns: { ...(prev.checkIns || {}), [user.uid]: myCheckIns + 1 },
       }));
-      Alert.alert('Checked In! 💪', `Total check-ins: ${myCheckIns + 1}`);
+      showerror ('Checked In! 💪', `Total check-ins: ${myCheckIns + 1}`);
     } catch (err) {
-      Alert.alert('Error', 'Could not check in. Please try again.');
+      showerror ('Error', 'Could not check in. Please try again.');
     } finally {
       setCheckingIn(false);
     }
@@ -136,7 +144,7 @@ export default function ActiveChallengeScreen() {
         doLeave();
       }
     } else {
-      Alert.alert(leaveTitle, leaveMessage, [
+      showError(leaveTitle, leaveMessage, [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Leave', style: 'destructive', onPress: doLeave },
       ]);
@@ -179,7 +187,7 @@ export default function ActiveChallengeScreen() {
       if (Platform.OS === 'web') {
         window.alert('Could not leave the challenge. Please try again.');
       } else {
-        Alert.alert('Error', 'Could not leave the challenge. Please try again.');
+        showError('Error', 'Could not leave the challenge. Please try again.');
       }
     } finally {
       setLeaving(false);
@@ -187,6 +195,18 @@ export default function ActiveChallengeScreen() {
   }
 
   async function toggleGoal(goalIndex) {
+
+    //checks if a user is trying to complete a goal without checking into the workout and alerts
+    if (!completedGoals.includes(goalIndex) && myCheckIns === 0) {
+      showError(
+        'Check-In Required',
+        'You need at least one check-in before completing a goal.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+
     let updated;
     if (completedGoals.includes(goalIndex)) {
       updated = completedGoals.filter((i) => i !== goalIndex);
@@ -213,7 +233,7 @@ export default function ActiveChallengeScreen() {
   }
 
   async function handleChallengeComplete() {
-    Alert.alert(
+    showError(
       '🎉 Challenge Complete!',
       `You completed "${challenge.title}"! You've earned a badge and made it to the Wall of Fame!`,
       [{ text: 'Awesome!' }]
@@ -246,7 +266,7 @@ export default function ActiveChallengeScreen() {
 
   async function handlePost() {
     if (!postText.trim() && !postImageUri) {
-      Alert.alert('Error', 'Please add a message or photo.');
+      showError('Error', 'Please add a message or photo.');
       return;
     }
     setPosting(true);
@@ -300,7 +320,7 @@ export default function ActiveChallengeScreen() {
       setShowPostModal(false);
     } catch (err) {
       console.error('Post error:', err);
-      Alert.alert('Error', 'Could not post message. Please try again.');
+      showError('Error', 'Could not post message. Please try again.');
     } finally {
       setPosting(false);
     }
