@@ -53,6 +53,8 @@ export default function ActiveChallengeScreen() {
 
   useEffect(() => {
     loadChallenge();
+    // challenge gets marked as seen
+    updateDoc(doc(db, 'users', user.uid), {[`lastSeen.${challengeId}`]: serverTimestamp()});
   }, [challengeId]);
 
   async function loadChallenge() {
