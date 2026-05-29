@@ -5,8 +5,7 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
-  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -17,7 +16,7 @@ import {
   getDocs,
   doc,
   getDoc,
-  updateDoc,
+  limit
 } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -27,50 +26,53 @@ import { COLORS, SPACING, SIZES, RADIUS, SHADOW } from '../theme';
 export default function MessageCenterScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
-  const [replies, setReplies] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadReplies();
+    loadNotifications();
   }, []);
 
-  async function loadReplies() {
-    setLoading(true);
+  async function loadNotifications() {
     try {
-      // Fetch messages where user has posted and there are replies
-      const q = query(
-        collection(db, 'messages'),
-        where('userId', '==', user.uid),
-        orderBy('timestamp', 'desc')
+      const userSnap = await getDoc(doc(db, 'users', user.uid));
+      const {joinedChallenges = [], lastSeen = {} } = userSnap.data();
+      const results = await Promise.all(
+        joinedChallenges.map( async (challengeId)=> {
+        // pull most recent message for the challenge
+          const q = query(
+            collection(db, 'messages'),
+            where('challengeId', '==', challengeId),
+            orderBy('timestamp', 'desc'),
+            limit(1)
+          );
+          const snap = await getDocs(q);
+          if (snap.empty) return null;
+
+          const latest = snap.docs[0].data();
+          const lastSeenTime = lastSeen[challengeId]?.toMillis?.() || 0;
+          const latestTime = latest.timestamp?.toMillis?.() || 0;
+          // if new message user hasn't seen yet
+          if (latestTime <= lastSeenTime) return null;
+          // no notification if users own message
+          if (latest.userId === user.uid) return null;
+
+          //fecth challenge title
+          const chalSnap = await getDoc(doc(db, 'challenges', challengeId));
+          const challengeTitile = chalSnap.exists()
+            ? chalSnap.data().title
+            : 'A challenge';
+
+          return {challengeId, challengeTitle, latest };
+        })
       );
-      const snap = await getDocs(q);
-      const withReplies = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((msg) => msg.replies && msg.replies.length > 0);
-      setReplies(withReplies);
+
+      setNotifications(results.filter(Boolean));
     } catch (err) {
-      console.error('Load replies error:', err);
+      console.error('Load notifications error:', err);
     } finally {
       setLoading(false);
     }
-  }
-
-  async function deleteMessage(messageId) {
-    Alert.alert('Delete', 'Remove this notification from your inbox?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          setReplies((prev) => prev.filter((m) => m.id !== messageId));
-          try {
-            await updateDoc(doc(db, 'messages', messageId), { replies: [] });
-          } catch (err) {
-            console.error('Delete error:', err);
-          }
-        },
-      },
-    ]);
   }
 
   function goToChallenge(challengeId) {
@@ -96,128 +98,86 @@ export default function MessageCenterScreen() {
 
   return (
     <View style={styles.container}>
-      {replies.length === 0 ? (
+      {notifications.length === 0 ? (
         <View style={styles.centered}>
           <Ionicons name="chatbubbles-outline" size={64} color={COLORS.border} />
-          <Text style={styles.emptyTitle}>No Messages Yet</Text>
+          <Text style={styles.emptyTitle}>All caught up!</Text>
           <Text style={styles.emptySubtitle}>
-            When someone replies to your chat posts, you'll see them here.
+            You'll see new message activity from your active challenges here.
           </Text>
         </View>
       ) : (
         <FlatList
-          data={replies}
-          keyExtractor={(item) => item.id}
+          data={notifications}
+          keyExtractor={(item) => item.challengeId}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
-            <View style={styles.messageCard}>
               <TouchableOpacity
-                style={styles.messageContent}
+                style={styles.card}
                 onPress={() => goToChallenge(item.challengeId)}
               >
-                <View style={styles.messageHeader}>
+                <View style={styles.iconWrap}>
                   <Ionicons name="chatbubble-ellipses" size={20} color={COLORS.primary} />
-                  <Text style={styles.messageTitle} numberOfLines={1}>
-                    {item.text || '(photo)'}
+                </View>
+                <View style={styles.textWrap}>
+                  <Text style={styles.challengeTitle} numberOfLines={1}>
+                    {item.challengeTitle}
                   </Text>
-                  <Text style={styles.messageTime}>{formatTime(item.timestamp)}</Text>
+                  <Text style={styles.preview} numberOfLines={2}> 
+                    {item.latest.userDisplayName}: {item.latest.text || '(photo)'}
+                  </Text>
+                  <Text style={styles.time}>{formatTime(item.latest.timestamp)}</Text>
                 </View>
-                <View style={styles.repliesPreview}>
-                  {item.replies.slice(0, 2).map((reply, i) => (
-                    <View key={i} style={styles.replyRow}>
-                      <View style={styles.replyAvatar}>
-                        <Text style={styles.replyAvatarText}>
-                          {(reply.userDisplayName || 'U')[0].toUpperCase()}
-                        </Text>
-                      </View>
-                      <View style={styles.replyBubble}>
-                        <Text style={styles.replyAuthor}>{reply.userDisplayName}</Text>
-                        <Text style={styles.replyText} numberOfLines={1}>{reply.text}</Text>
-                      </View>
-                    </View>
-                  ))}
-                  {item.replies.length > 2 && (
-                    <Text style={styles.moreReplies}>
-                      +{item.replies.length - 2} more replies
-                    </Text>
-                  )}
-                </View>
-                <Text style={styles.tapHint}>Tap to view in challenge chat</Text>
+                <Ionicons name="chevron forward" size={18} color={COLORS.textSecondary} />
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.deleteBtn}
-                onPress={() => deleteMessage(item.id)}
-              >
-                <View style={styles.deleteCircle}>
-                  <Ionicons name="trash-outline" size={16} color={COLORS.white} />
-                </View>
-              </TouchableOpacity>
-            </View>
           )}
         />
       )}
     </View>
   );
 }
+      
+                
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xxl, gap: SPACING.md },
-  emptyTitle: { fontSize: SIZES.xlarge, fontWeight: '700', color: COLORS.textPrimary, textAlign: 'center' },
-  emptySubtitle: { fontSize: SIZES.medium, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
+  centered: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    padding: SPACING.xxl, gap: SPACING.md,
+  },
+  emptyTitle: {
+    fontSize: SIZES.xlarge, fontWeight: '700',
+    color: COLORS.textPrimary, textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: SIZES.medium, color: COLORS.textSecondary,
+    textAlign: 'center', lineHeight: 22,
+  },
   list: { padding: SPACING.lg },
-  messageCard: {
+  card: {
     backgroundColor: COLORS.white,
     borderRadius: RADIUS.md,
     marginBottom: SPACING.md,
+    padding: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
     ...SHADOW.small,
-    flexDirection: 'row',
-    overflow: 'hidden',
   },
-  messageContent: { flex: 1, padding: SPACING.md },
-  messageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-  messageTitle: {
-    flex: 1,
-    fontSize: SIZES.medium,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  messageTime: { fontSize: SIZES.xsmall, color: COLORS.textSecondary },
-  repliesPreview: { gap: SPACING.sm, marginBottom: SPACING.sm },
-  replyRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  replyAvatar: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: COLORS.primary,
+  iconWrap: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: COLORS.background,
     alignItems: 'center', justifyContent: 'center',
   },
-  replyAvatarText: { color: COLORS.white, fontWeight: '700', fontSize: SIZES.xsmall },
-  replyBubble: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    borderRadius: RADIUS.sm,
-    padding: SPACING.sm,
+  textWrap: { flex: 1 },
+  challengeTitle: {
+    fontSize: SIZES.medium, fontWeight: '700',
+    color: COLORS.textPrimary, marginBottom: 2,
   },
-  replyAuthor: { fontSize: SIZES.xsmall, fontWeight: '600', color: COLORS.primary },
-  replyText: { fontSize: SIZES.small, color: COLORS.textPrimary },
-  moreReplies: { fontSize: SIZES.small, color: COLORS.primary, fontWeight: '500', marginLeft: SPACING.xl },
-  tapHint: { fontSize: SIZES.xsmall, color: COLORS.textSecondary, fontStyle: 'italic' },
-  deleteBtn: {
-    width: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.background,
-    borderLeftWidth: 1,
-    borderColor: COLORS.border,
+  preview: {
+    fontSize: SIZES.small, color: COLORS.textSecondary, lineHeight: 18,
   },
-  deleteCircle: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: COLORS.red,
-    alignItems: 'center', justifyContent: 'center',
+  time: {
+    fontSize: SIZES.xsmall, color: COLORS.textSecondary, marginTop: 4,
   },
 });
