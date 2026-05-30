@@ -26,7 +26,7 @@ import {
   deleteField,
   writeBatch,
 } from 'firebase/firestore';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { db, storage } from '../firebase/config';
 import BadgeIcon from '../components/BadgeIcon';
@@ -432,11 +432,4 @@ const styles = StyleSheet.create({
   },
   goalText: { flex: 1, fontSize: SIZES.medium, color: COLORS.textPrimary },
   goalDone: { textDecorationLine: 'line-through', color: COLORS.textSecondary },
-  emptyChatBox: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.md,
-    padding: SPACING.xl,
-    alignItems: 'center',
-  },
-  
 });
