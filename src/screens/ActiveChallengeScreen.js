@@ -92,11 +92,10 @@ export default function ActiveChallengeScreen() {
 
   function showError(title, message) {
     if (Platform.OS === 'web') {
-      window.alert(`${title}\n\n${message}`);
+      window.alert(message)
     } else {
-      showError(title, message);
+      Alert.alert('Error', message) <--- this is the line that needs to be changed
     }
-  }
 
   function subscribeToMessages() {
     const q = query(
