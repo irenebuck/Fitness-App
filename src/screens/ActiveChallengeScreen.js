@@ -118,9 +118,9 @@ export default function ActiveChallengeScreen() {
         ...prev,
         checkIns: { ...(prev.checkIns || {}), [user.uid]: myCheckIns + 1 },
       }));
-      showerror ('Checked In! 💪', `Total check-ins: ${myCheckIns + 1}`);
+      showError ('Checked In! 💪', `Total check-ins: ${myCheckIns + 1}`);
     } catch (err) {
-      showerror ('Error', 'Could not check in. Please try again.');
+      showError ('Error', 'Could not check in. Please try again.');
     } finally {
       setCheckingIn(false);
     }
