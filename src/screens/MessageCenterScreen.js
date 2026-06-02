@@ -59,7 +59,7 @@ export default function MessageCenterScreen() {
 
           //fecth challenge title
           const chalSnap = await getDoc(doc(db, 'challenges', challengeId));
-          const challengeTitile = chalSnap.exists()
+          const challengeTitle = chalSnap.exists()
             ? chalSnap.data().title
             : 'A challenge';
 
@@ -103,7 +103,7 @@ export default function MessageCenterScreen() {
           <Ionicons name="chatbubbles-outline" size={64} color={COLORS.border} />
           <Text style={styles.emptyTitle}>All caught up!</Text>
           <Text style={styles.emptySubtitle}>
-            You'll see new message activity from your active challenges here.
+            When someone replies to a chat posts, you'll see notifications here.
           </Text>
         </View>
       ) : (
@@ -128,7 +128,7 @@ export default function MessageCenterScreen() {
                   </Text>
                   <Text style={styles.time}>{formatTime(item.latest.timestamp)}</Text>
                 </View>
-                <Ionicons name="chevron forward" size={18} color={COLORS.textSecondary} />
+                <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
               </TouchableOpacity>
           )}
         />
