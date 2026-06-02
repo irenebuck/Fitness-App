@@ -31,7 +31,8 @@ export default function CompletedChallengeScreen() {
     try {
       const snap = await getDoc(doc(db, 'challenges', challengeId));
       if (snap.exists()) {
-        setChallenge({ id: snap.id, ...snap.data() });
+        const data = snap.data();
+        setChallenge({ id: snap.id, ...data });
       }
     } catch (err) {
       console.error(err);
@@ -55,14 +56,12 @@ export default function CompletedChallengeScreen() {
       </View>
     );
   }
-
   const myCheckIns = challenge.checkIns?.[user?.uid] || 0;
 
   // Find beast (most check-ins)
   const checkInsMap = challenge.checkIns || {};
   const beastEntry = Object.entries(checkInsMap).sort(([, a], [, b]) => b - a)[0];
-  const beastUid = beastEntry?.[0];
-  const isBeast = beastUid === user?.uid;
+  const isBeast = beastEntry?.[0] === user?.uid;
 
   const wallOfFame = challenge.wallOfFame || [];
   const earnedBadge = userProfile?.badges?.includes(challenge.badgeId || 'completion');
@@ -131,25 +130,27 @@ export default function CompletedChallengeScreen() {
         )}
 
         {/* Challenge Beast */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>👑 Challenge Beast</Text>
-          <View style={styles.beastCard}>
-            {isBeast ? (
-              <>
-                <BadgeIcon type="beast" size="large" />
-                <Text style={styles.beastText}>That's you! {myCheckIns} check-ins!</Text>
-              </>
-            ) : (
-              <>
-                <BadgeIcon type="beast" size="medium" />
-                <Text style={styles.beastText}>
-                  The beast logged {beastEntry?.[1] || 0} check-ins.{'\n'}
-                  You logged {myCheckIns}.
-                </Text>
-              </>
-            )}
+        {Object.keys(checkInsMap).length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>👑 Challenge Beast</Text>
+            <View style={styles.beastCard}>
+              {isBeast ? (
+                <>
+                  <BadgeIcon type="beast" size="large" />
+                  <Text style={styles.beastText}>That's you! {myCheckIns} check-ins!</Text>
+                </>
+              ) : (
+                <>
+                  <BadgeIcon type="beast" size="medium" />
+                  <Text style={styles.beastText}>
+                    The beast logged {beastEntry?.[1] || 0} check-ins.{'\n'}
+                    You logged {myCheckIns}.
+                  </Text>
+                </>
+              )}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Wall of Fame */}
         {wallOfFame.length > 0 && (

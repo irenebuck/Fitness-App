@@ -76,6 +76,24 @@ export default function ActiveChallengeScreen() {
     }
   }
 
+  function showError(title, message) {
+    if (Platform.OS === 'web') {
+      window.alert(message)
+    } else {
+      Alert.alert('Error', message) <--- this is the line that needs to be changed
+    }
+
+  function subscribeToMessages() {
+    const q = query(
+      collection(db, 'messages'),
+      where('challengeId', '==', challengeId),
+      orderBy('timestamp', 'desc')
+    );
+    return onSnapshot(q, (snap) => {
+      setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+  }
+
   async function handleCheckIn() {
     setCheckingIn(true);
     try {
@@ -86,9 +104,9 @@ export default function ActiveChallengeScreen() {
         ...prev,
         checkIns: { ...(prev.checkIns || {}), [user.uid]: myCheckIns + 1 },
       }));
-      Alert.alert('Checked In! 💪', `Total check-ins: ${myCheckIns + 1}`);
+      showError ('Checked In! 💪', `Total check-ins: ${myCheckIns + 1}`);
     } catch (err) {
-      Alert.alert('Error', 'Could not check in. Please try again.');
+      showError ('Error', 'Could not check in. Please try again.');
     } finally {
       setCheckingIn(false);
     }
@@ -111,10 +129,7 @@ export default function ActiveChallengeScreen() {
         doLeave();
       }
     } else {
-      Alert.alert(leaveTitle, leaveMessage, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Leave', style: 'destructive', onPress: doLeave },
-      ]);
+      showError(leaveTitle, leaveMessage);
     }
   }
 
@@ -154,7 +169,7 @@ export default function ActiveChallengeScreen() {
       if (Platform.OS === 'web') {
         window.alert('Could not leave the challenge. Please try again.');
       } else {
-        Alert.alert('Error', 'Could not leave the challenge. Please try again.');
+        showError('Error', 'Could not leave the challenge. Please try again.');
       }
     } finally {
       setLeaving(false);
@@ -162,6 +177,18 @@ export default function ActiveChallengeScreen() {
   }
 
   async function toggleGoal(goalIndex) {
+
+    //checks if a user is trying to complete a goal without checking into the workout and alerts
+    if (!completedGoals.includes(goalIndex) && myCheckIns === 0) {
+      showError(
+        'Check-In Required',
+        'You need at least one check-in before completing a goal.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+
     let updated;
     if (completedGoals.includes(goalIndex)) {
       updated = completedGoals.filter((i) => i !== goalIndex);
@@ -188,7 +215,7 @@ export default function ActiveChallengeScreen() {
   }
 
   async function handleChallengeComplete() {
-    Alert.alert(
+    showError(
       '🎉 Challenge Complete!',
       `You completed "${challenge.title}"! You've earned a badge and made it to the Wall of Fame!`,
       [{ text: 'Awesome!' }]
@@ -208,7 +235,79 @@ export default function ActiveChallengeScreen() {
     }
   }
 
-  
+  async function pickPostImage() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPostImageUri(result.assets[0].uri);
+    }
+  }
+
+  async function handlePost() {
+    if (!postText.trim() && !postImageUri) {
+      showError('Error', 'Please add a message or photo.');
+      return;
+    }
+    setPosting(true);
+    try {
+      let imageURL = null;
+      if (postImageUri) {
+        const response = await fetch(postImageUri);
+        const blob = await response.blob();
+        const filename = `messages/${user.uid}_${Date.now()}.jpg`;
+        const storageRef = ref(storage, filename);
+        await uploadBytes(storageRef, blob);
+        imageURL = await getDownloadURL(storageRef);
+      }
+
+      if (replyTarget) {
+        // Add reply to existing message
+        const msgRef = doc(db, 'messages', replyTarget.id);
+        const msgSnap = await getDoc(msgRef);
+        if (msgSnap.exists()) {
+          const replies = msgSnap.data().replies || [];
+          await updateDoc(msgRef, {
+            replies: [
+              ...replies,
+              {
+                id: Date.now().toString(),
+                userId: user.uid,
+                userDisplayName: userProfile?.displayName || user.displayName,
+                userPhotoURL: userProfile?.photoURL || null,
+                text: postText.trim(),
+                timestamp: serverTimestamp(), // server clock
+              },
+            ],
+          });
+        }
+      } else {
+        await addDoc(collection(db, 'messages'), {
+          challengeId,
+          userId: user.uid,
+          userDisplayName: userProfile?.displayName || user.displayName,
+          userPhotoURL: userProfile?.photoURL || null,
+          text: postText.trim(),
+          imageURL,
+          timestamp: serverTimestamp(),
+          replies: [],
+        });
+      }
+
+      setPostText('');
+      setPostImageUri(null);
+      setReplyTarget(null);
+      setShowPostModal(false);
+    } catch (err) {
+      console.error('Post error:', err);
+      showError('Error', 'Could not post message. Please try again.');
+    } finally {
+      setPosting(false);
+    }
+  }
+
   if (loading) {
     return (
       <View style={styles.centered}>
