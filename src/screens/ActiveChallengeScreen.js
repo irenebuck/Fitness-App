@@ -143,10 +143,7 @@ export default function ActiveChallengeScreen() {
         doLeave();
       }
     } else {
-      showError(leaveTitle, leaveMessage, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Leave', style: 'destructive', onPress: doLeave },
-      ]);
+      showError(leaveTitle, leaveMessage);
     }
   }
 
