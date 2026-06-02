@@ -1,5 +1,6 @@
 /*
-UNIT TESTS FOR LOGINSCREEN.JS
+UNIT TESTS
+Lines 1 - 202
 
 The LoginScreen.js is a React Native component — a JavaScript function that
 returns the visual UI for the login screen (the email input, password input,
@@ -199,4 +200,162 @@ describe('friendlyError', () => {
     expect(friendlyError('auth/something-unknown'))
       .toBe('Something went wrong. Please try again.');
   });
+});
+
+/* 
+COMPONENT TESTS
+Lines 211 - 380
+
+Render the LoginScreen.js component and simulate user interactions to verify that the 
+correct functions are called and the correct alerts are shown.
+*/
+import React from 'react';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import LoginScreen from '../screens/LoginScreen';
+
+// ─── MOCKS & SPIES ─────────────────────────────────────────────────────────────
+// Fake version of useAuth that just gives us mock functions we can check if they were called
+const mockLogin = jest.fn();
+const mockSignup = jest.fn();
+const mockResetPassword = jest.fn();
+
+// Mocks the AuthContext to return our fake useAuth with mock functions
+jest.mock('../context/AuthContext', () => ({
+  useAuth: () => ({
+    login: mockLogin,
+    signup: mockSignup,
+    resetPassword: mockResetPassword,
+  }),
+}));
+
+// SafeAreaView needs real device hardware to calculate screen boundaries.
+// In tests there is no device, so we replace it with a fragment (<>...</>)
+// which just renders whatever is inside it — satisfying React's one-return rule
+// without adding any visible element or requiring hardware.
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: ({ children, style }) => (
+    <>{children}</>
+  ),
+}));
+
+// Spy on alert so we can check if it was called without a real popup appearing
+jest.spyOn(Alert, 'alert');
+
+// ─── SETUP ───────────────────────────────────────────────────────────────────
+
+// Clear all mock history before each test so tests don't bleed into each other
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+// ─── TESTS ───────────────────────────────────────────────────────────────────
+
+test('renders the logo section', () => {
+  const { getByText } = render(<LoginScreen />);
+  // Check that key elements are on screen in Logo rendering, lines 167, 169-170
+  expect(getByText('💪')).toBeTruthy();                         
+  expect(getByText("Let's Go!")).toBeTruthy();                  
+  expect(getByText('Community Fitness Challenges')).toBeTruthy();
+});
+
+test('renders the login form', () => {
+  const { getByPlaceholderText, getByText } = render(<LoginScreen />);
+
+  // Checks elements are on the screen in Login Card rendering
+  expect(getByText('Sign In')).toBeTruthy();                      // line 175
+  expect(getByText('Email')).toBeTruthy();                        // line 177
+  expect(getByPlaceholderText('your@email.com')).toBeTruthy();    // line 180
+  expect(getByText('Password')).toBeTruthy();                     // line 192
+  expect(getByPlaceholderText('Password')).toBeTruthy();          // line 195 
+  expect(getByText('Log In')).toBeTruthy();                       // line 216  
+  expect(getByText('Create Account')).toBeTruthy();               // line 222 
+  expect(getByText('Forgot Password')).toBeTruthy();              // line 225 
+});
+
+test('renders all fields in the create account modal', () => {
+  const { getByText, getByPlaceholderText, getAllByText, getAllByPlaceholderText } = render(<LoginScreen />);
+
+  // Open the modal
+  fireEvent.press(getByText('Create Account'));                   // line 222
+
+  // Check all modal contents, lines 236-300
+  expect(getByText('Full Name')).toBeTruthy();                    // line 238
+  expect(getByPlaceholderText('Your name')).toBeTruthy();         // line 241
+  // 'Email' and 'your@email.com' also exist on the login form behind the modal
+  // so we use getAllBy instead of getBy to handle multiple matches
+  expect(getAllByText('Email').length).toBeGreaterThan(0);
+  expect(getAllByPlaceholderText('your@email.com').length).toBeGreaterThan(0);
+  expect(getAllByText('Password').length).toBeGreaterThan(0);
+  expect(getByPlaceholderText('Min. 6 characters')).toBeTruthy();  // line 261
+  expect(getByText('Confirm Password')).toBeTruthy();              // line 267
+  expect(getByPlaceholderText('Confirm password')).toBeTruthy();   // line 270
+  expect(getByText('Cancel')).toBeTruthy();                        // line 300
+});
+
+test('renders all fields in the forgot password modal', () => {
+  const { getByText, getAllByText, getAllByPlaceholderText } = render(<LoginScreen />);
+
+  // Open the modal
+  fireEvent.press(getByText('Forgot Password'));                    // line 225
+
+  // Check all modal contents
+  expect(getByText('Reset Password')).toBeTruthy();                 // line 311
+  expect(getByText('Enter your email and we will send you instructions to reset your password.')).toBeTruthy(); 
+  // 'Email' and 'your@email.com' also exist on the login form behind the modal
+  expect(getAllByText('Email').length).toBeGreaterThan(0);          // line 315
+  expect(getAllByPlaceholderText('your@email.com').length).toBeGreaterThan(0);
+  expect(getByText('Send Reset Email')).toBeTruthy();               // line 334
+  expect(getByText('Cancel')).toBeTruthy();                         // line 344
+});
+
+test('shows an error when logging in with empty fields', () => {
+  const { getByText } = render(<LoginScreen />);
+
+  // Simulates a finger tap on the Log In button, nothing is typed in the fields, line 216
+  fireEvent.press(getByText('Log In'));
+
+  // Alert.alert should have been called with these two args/message, lines 50-53
+  expect(Alert.alert).toHaveBeenCalledWith(
+    'Error',
+    'Please enter your email and password.'
+  );
+});
+
+test('calls login() with email and password when form is filled', async () => {
+  mockLogin.mockResolvedValueOnce(); // Simulate a successful login (no error thrown)
+
+  const { getByPlaceholderText, getByText } = render(<LoginScreen />);
+
+  // Type into the email field,  line 180
+  fireEvent.changeText(getByPlaceholderText('your@email.com'), 'user@test.com');
+  // Type into the password field, line 195
+  fireEvent.changeText(getByPlaceholderText('Password'), 'mypassword');
+  // Tap Log In, line 216
+  fireEvent.press(getByText('Log In'));
+
+  // login() is async, so we wait for it to be called
+  await waitFor(() => {
+    expect(mockLogin).toHaveBeenCalledWith('user@test.com', 'mypassword');
+  });
+});
+
+test('opens the signup modal when Create Account is tapped', () => {
+  const { getByText, getAllByText, getByPlaceholderText } = render(<LoginScreen />);
+
+  fireEvent.press(getByText('Create Account'));
+
+  // After tapping, the modal title should now be visible, line 236, 241
+  expect(getAllByText('Create Account')[1]).toBeTruthy();
+  expect(getByPlaceholderText('Your name')).toBeTruthy();
+});
+
+test('opens the forgot password modal when Forgot Password is tapped', () => {
+  const { getByText, getByPlaceholderText } = render(<LoginScreen />);
+
+  fireEvent.press(getByText('Forgot Password'));
+
+  // After tapping, the modal title should now be visible, line 312, 328
+  expect(getByText('Reset Password')).toBeTruthy();
+  expect(getByText('Send Reset Email')).toBeTruthy();
 });
